@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Asta Vault — Public Profile</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+  body { background-color: var(--bg-dark); color: #fff; }
+  
+  /* VAULT BANNER STYLES */
+  .vault-banner { 
+    width: 100%; height: 300px; background-size: cover; background-position: center; 
+    position: relative; margin-top: 80px; display: flex; align-items: flex-end; 
+    border-bottom: 2px solid var(--accent-cyan);
+  }
+  .vault-banner-overlay {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: linear-gradient(to top, rgba(5,5,8,1) 0%, rgba(5,5,8,0.3) 100%);
+    z-index: 1;
+  }
+  .vault-profile-info { position: relative; z-index: 2; padding: 40px 0; width: 100%; }
+  .vault-id { font-family: var(--font-display); font-size: 48px; font-weight: 900; text-transform: uppercase; color: #fff; line-height: 1; text-shadow: 0 4px 10px rgba(0,0,0,0.8); margin-bottom: 8px; }
+  .vault-region { font-family: var(--font-mono); font-size: 14px; color: var(--accent-cyan); background: rgba(0,0,0,0.5); padding: 4px 12px; border-radius: 4px; display: inline-block; border: 1px solid var(--accent-cyan); }
+
+  /* STATS CARD */
+  .account-summary-card { background: rgba(15, 10, 30, 0.6); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 20px; margin-top: -30px; position: relative; z-index: 10; display: flex; gap: 15px; align-items: center; flex-wrap: wrap; justify-content: space-between; backdrop-filter: blur(10px); box-shadow: 0 10px 30px rgba(0,0,0,0.5); margin-bottom: 40px;}
+  .summary-stat { flex: 1; text-align: center; min-width: 100px; }
+  .summary-val { font-size: 24px; font-weight: bold; color: #fff; font-family: 'Barlow Condensed', sans-serif; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .summary-label { font-size: 12px; color: var(--white-dim); text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; font-family: var(--font-mono); }
+  .divider { width: 1px; background: rgba(255,255,255,0.1); height: 40px; }
+
+  /* INVENTORY TABS & GRIDS */
+  .inventory-header { display: flex; border-bottom: 1px solid #333; margin-bottom: 20px; gap: 5px; overflow-x: auto;}
+  .inv-tab { background: #111116; border: none; padding: 15px 30px; color: var(--white-dim); font-family: var(--font-ui); font-weight: 600; cursor: pointer; border-top-left-radius: 8px; border-top-right-radius: 8px; transition: 0.2s; white-space: nowrap;}
+  .inv-tab:hover { color: #fff; background: rgba(255,255,255,0.05); }
+  .inv-tab.active { background: #1a1a24; color: var(--accent-cyan); border-bottom: 2px solid var(--accent-cyan); }
+  
+  .skin-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 15px; margin-bottom: 60px; }
+  .skin-card { background: rgba(15, 10, 30, 0.4); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 20px 15px; display: flex; flex-direction: column; align-items: center; text-align: center; transition: 0.2s; }
+  .skin-card:hover { transform: translateY(-5px); border-color: rgba(255,255,255,0.2); background: rgba(255,255,255,0.02); }
+  .skin-card img { height: 60px; object-fit: contain; margin-bottom: 15px; filter: drop-shadow(0px 4px 6px rgba(0,0,0,0.4)); }
+  .skin-card .skin-name { color: #fff; font-size: 14px; font-weight: 600; font-family: var(--font-ui); }
+  
+  .tier-premium { border-top: 3px solid #d1548d; }   
+  .tier-exclusive { border-top: 3px solid #f59e5b; } 
+  .tier-ultra { border-top: 3px solid #f5d463; }     
+  .tier-battlepass { border-top: 3px solid #8e92a4; } 
+
+  .loading-msg { text-align: center; padding: 100px; color: var(--accent-cyan); font-family: var(--font-mono); font-size: 18px; }
+  .error-msg { text-align: center; padding: 100px; color: var(--red); font-family: var(--font-display); font-size: 32px; text-transform: uppercase; }
+</style>
+</head>
+<body>
+
+<nav class="navbar">
+  <a href="index.html" class="brand-logo-link">
+    <img src="asta_mart_logo_transparent.png" alt="Asta Mart" class="nav-brand-img">
+  </a>
+  
+  <div class="nav-links" style="gap: 15px; align-items: center;">
+    <a href="browse.html" class="nav-premium-btn"><span class="nav-premium-inner">Browse Accounts</span></a>
+    <a href="get-edit.html" class="nav-premium-btn"><span class="nav-premium-inner">Get Inv Edit</span></a>
+    <a href="vault-dashboard.html" class="nav-premium-btn"><span class="nav-premium-inner" style="color: var(--accent-cyan);">Asta Vault</span></a>
+  </div>
+  
+  <div class="nav-actions" style="display: flex; align-items: center; gap: 20px;">
+    
+    <a href="saved.html" class="nav-cart-icon" title="Saved Accounts">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle>
+        <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+      </svg>
+      <span id="navCartBadge" class="cart-badge" style="display:none;">0</span>
+    </a>
+
+    <div id="guestActions" style="display: flex; gap: 15px;">
+      <button class="auth-btn-wrapper auth-btn-login" onclick="openAuth('login')">
+        <div class="auth-btn-inner">
+          <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
+          Login
+        </div>
+      </button>
+      <button class="auth-btn-wrapper auth-btn-signup" onclick="openAuth('signup')">
+        <div class="auth-btn-inner">
+          <svg viewBox="0 0 24 24"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+          Sign Up
+        </div>
+      </button>
+    </div>
+    
+    <div id="userActions" class="hidden">
+      <div class="avatar" onclick="toggleUserMenu()"><span id="avatarInitial">U</span>
+        
+        <div class="user-menu hidden" id="userMenu">
+          <div class="menu-row">
+            <button class="profile-hub-btn" onclick="window.location.href='profile.html'">
+              <div class="sign">
+                <svg viewBox="0 0 24 24">
+                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"></path>
+                </svg>
+              </div>
+              <div class="text">Profile Hub</div>
+            </button>
+          </div>
+          
+          <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin: 10px 0;">
+          
+          <div class="menu-row">
+            <button class="Btn" onclick="logout()" style="margin: 0;">
+              <div class="sign">
+                <svg viewBox="0 0 512 512">
+                  <path d="M377.9 105.9L500.7 228.7c7.2 7.2 11.3 17.1 11.3 27.3s-4.1 20.1-11.3 27.3L377.9 406.1c-6.4 6.4-15 9.9-24 9.9c-18.7 0-33.9-15.2-33.9-33.9l0-62.1-128 0c-17.7 0-32-14.3-32-32l0-64c0-17.7 14.3-32 32-32l128 0 0-62.1c0-18.7 15.2-33.9 33.9-33.9c9 0 17.6 3.6 24 9.9zM160 96L96 96c-17.7 0-32 14.3-32 32l0 256c0 17.7 14.3 32 32 32l64 0c17.7 0 32 14.3 32 32s-14.3 32-32 32l-64 0c-53 0-96-43-96-96L0 128C0 75 43 32 96 32l64 0c17.7 0 32 14.3 32 32s-14.3 32-32 32z"></path>
+                </svg>
+              </div>
+              <div class="text">Logout</div>
+            </button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+</nav>
+
+<div id="vault-loading" class="loading-msg">Decrypting Vault Data...</div>
+<div id="vault-error" class="error-msg hidden">Account Not Found or Expired</div>
+
+<div id="vault-content" class="hidden">
+  <!-- BANNER -->
+  <div class="vault-banner" id="v-banner">
+    <div class="vault-banner-overlay"></div>
+    <div class="container vault-profile-info">
+      <div class="vault-id" id="v-riot-id">Loading...</div>
+      <div class="vault-region" id="v-region">--</div>
+    </div>
+  </div>
+
+  <div class="container">
+    <!-- STATS -->
+    <div class="account-summary-card">
+      <div class="summary-stat">
+        <div class="summary-val" id="v-rank">-</div>
+        <div class="summary-label">Current Rank</div>
+      </div>
+      <div class="divider"></div>
+      <div class="summary-stat">
+        <div class="summary-val" id="v-level">-</div>
+        <div class="summary-label">Account Level</div>
+      </div>
+      <div class="divider"></div>
+      <div class="summary-stat">
+        <div class="summary-val" id="v-vp">-</div>
+        <div class="summary-label">VP Balance</div>
+      </div>
+      <div class="divider"></div>
+      <div class="summary-stat">
+        <div class="summary-val" id="v-rp">-</div>
+        <div class="summary-label">Radianite</div>
+      </div>
+    </div>
+
+    <!-- INVENTORY TABS -->
+    <div class="inventory-section">
+      <div class="inventory-header">
+        <button class="inv-tab active" onclick="switchVaultTab('skins')">Premium Skins (<span id="count-skins">0</span>)</button>
+        <button class="inv-tab" onclick="switchVaultTab('battlepass')">Battlepass (<span id="count-bp">0</span>)</button>
+        <button class="inv-tab" onclick="switchVaultTab('agents')">Agents (<span id="count-agents">0</span>)</button>
+        <button class="inv-tab" onclick="switchVaultTab('buddies')">Buddies (<span id="count-buddies">0</span>)</button>
+      </div>
+      
+      <!-- TAB CONTENTS -->
+      <div id="tab-skins" class="inv-content" style="display: block;">
+         <div class="skin-grid" id="grid-skins"></div>
+      </div>
+      <div id="tab-battlepass" class="inv-content" style="display: none;">
+         <div class="skin-grid" id="grid-bp"></div>
+      </div>
+      <div id="tab-agents" class="inv-content" style="display: none;">
+         <div class="skin-grid" id="grid-agents"></div>
+      </div>
+      <div id="tab-buddies" class="inv-content" style="display: none;">
+         <div class="skin-grid" id="grid-buddies"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', fetchVaultData);
+
+function switchVaultTab(tabId) {
+    // Reset tabs
+    document.querySelectorAll('.inventory-header .inv-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.inventory-section .inv-content').forEach(c => c.style.display = 'none');
+    
+    // Activate target
+    event.currentTarget.classList.add('active');
+    document.getElementById('tab-' + tabId).style.display = 'block';
+}
+
+async function fetchVaultData() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const slug = urlParams.get('v');
+
+    if (!slug) {
+        showError("Invalid Vault Link provided.");
+        return;
+    }
+
+    try {
+        const res = await fetch(`http://localhost:5000/api/vault/public/${slug}`);
+        if (!res.ok) throw new Error('Not found');
+        
+        const vaultItem = await res.json();
+        renderVaultUI(vaultItem.accountData);
+        
+        document.getElementById('vault-loading').classList.add('hidden');
+        document.getElementById('vault-content').classList.remove('hidden');
+        
+    } catch (err) {
+        showError("This Vault link has expired or does not exist.");
+    }
+}
+
+function showError(msg) {
+    document.getElementById('vault-loading').classList.add('hidden');
+    const errDiv = document.getElementById('vault-error');
+    errDiv.textContent = msg;
+    errDiv.classList.remove('hidden');
+}
+
+function renderVaultUI(data) {
+    // 1. Header & Stats
+    document.title = `${data.riotId} — Asta Vault`;
+    document.getElementById('v-banner').style.backgroundImage = `url('${data.playerCardImage}')`;
+    document.getElementById('v-riot-id').textContent = data.riotId;
+    document.getElementById('v-region').textContent = `${data.country} (${data.region}) Server`;
+    
+    // Attempt to inject rank icon if getRankIcon is available in app.js
+    const rankHtml = typeof getRankIcon === 'function' ? getRankIcon(data.rank) : '';
+    document.getElementById('v-rank').innerHTML = `${rankHtml} ${data.rank}`;
+    
+    document.getElementById('v-level').textContent = data.level;
+    document.getElementById('v-vp').textContent = data.vpBalance;
+    document.getElementById('v-rp').textContent = data.rpBalance;
+
+    // 2. Arrays from backend
+    const premArr = data.premiumSkins || [];
+    const bpArr = data.battlepassSkins || [];
+    const agentArr = data.unlockedAgents || [];
+    const buddyArr = data.unlockedBuddies || [];
+
+    // 3. Update Counts
+    document.getElementById('count-skins').textContent = premArr.length;
+    document.getElementById('count-bp').textContent = bpArr.length;
+    document.getElementById('count-agents').textContent = agentArr.length;
+    document.getElementById('count-buddies').textContent = buddyArr.length;
+
+    // 4. Render Premium
+    const gridSkins = document.getElementById('grid-skins');
+    if (premArr.length === 0) gridSkins.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: var(--white-dim); padding: 40px;">No premium skins found.</p>';
+    else {
+        gridSkins.innerHTML = premArr.map(skin => {
+            let tierClass = 'tier-premium'; 
+            if(skin.tier === 'e046854e-406c-37f4-6607-19a9ba8426fc') tierClass = 'tier-exclusive';
+            if(skin.tier === '411e4a55-4e59-7757-41f0-86a53f101bb5') tierClass = 'tier-ultra';
+            return `<div class="skin-card ${tierClass}"><img src="${skin.icon}" alt="${skin.name}"><div class="skin-name">${skin.name}</div></div>`;
+        }).join('');
+    }
+
+    // 5. Render Battlepass
+    const gridBp = document.getElementById('grid-bp');
+    if (bpArr.length === 0) gridBp.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: var(--white-dim); padding: 40px;">No battlepass items found.</p>';
+    else {
+        gridBp.innerHTML = bpArr.map(skin => {
+            return `<div class="skin-card tier-battlepass"><img src="${skin.icon}" alt="${skin.name}"><div class="skin-name">${skin.name}</div></div>`;
+        }).join('');
+    }
+
+    // 6. Render Agents
+    const gridAgents = document.getElementById('grid-agents');
+    if (agentArr.length === 0) gridAgents.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: var(--white-dim); padding: 40px;">No agents found.</p>';
+    else {
+        gridAgents.innerHTML = agentArr.map(agent => {
+            return `<div class="skin-card tier-battlepass"><img src="${agent.icon}" alt="${agent.name}"><div class="skin-name">${agent.name}</div></div>`;
+        }).join('');
+    }
+
+    // 7. Render Buddies
+    const gridBuddies = document.getElementById('grid-buddies');
+    if (buddyArr.length === 0) gridBuddies.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: var(--white-dim); padding: 40px;">No gun buddies found.</p>';
+    else {
+        gridBuddies.innerHTML = buddyArr.map(buddy => {
+            return `<div class="skin-card" style="border-top: 3px solid var(--accent-cyan);"><img src="${buddy.icon}" alt="${buddy.name}" style="height: 40px;"><div class="skin-name">${buddy.name}</div></div>`;
+        }).join('');
+    }
+}
+</script>
+</body>
+</html>

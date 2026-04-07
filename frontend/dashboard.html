@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard — Asta Mart</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav class="navbar">
+  <a href="index.html" class="brand-logo-link">
+    <img src="asta_mart_logo_transparent.png" alt="Asta Mart" class="nav-brand-img">
+  </a>
+  
+  <div class="nav-links" style="gap: 15px; align-items: center;">
+    <a href="browse.html" class="nav-premium-btn"><span class="nav-premium-inner">Browse Accounts</span></a>
+    <a href="get-edit.html" class="nav-premium-btn"><span class="nav-premium-inner">Get Inv Edit</span></a>
+    <a href="vault-dashboard.html" class="nav-premium-btn"><span class="nav-premium-inner" style="color: var(--accent-cyan);">Asta Vault</span></a>
+  </div>
+  
+  <div class="nav-actions" style="display: flex; align-items: center; gap: 20px;">
+    
+    <a href="saved.html" class="nav-cart-icon" title="Saved Accounts">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle>
+        <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+      </svg>
+      <span id="navCartBadge" class="cart-badge" style="display:none;">0</span>
+    </a>
+
+    <div id="guestActions" style="display: flex; gap: 15px;">
+      <button class="auth-btn-wrapper auth-btn-login" onclick="openAuth('login')">
+        <div class="auth-btn-inner">
+          <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
+          Login
+        </div>
+      </button>
+      <button class="auth-btn-wrapper auth-btn-signup" onclick="openAuth('signup')">
+        <div class="auth-btn-inner">
+          <svg viewBox="0 0 24 24"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+          Sign Up
+        </div>
+      </button>
+    </div>
+    
+    <div id="userActions" class="hidden">
+      <div class="avatar" onclick="toggleUserMenu()"><span id="avatarInitial">U</span>
+        
+        <div class="user-menu hidden" id="userMenu">
+          <div class="menu-row">
+            <button class="profile-hub-btn" onclick="window.location.href='profile.html'">
+              <div class="sign">
+                <svg viewBox="0 0 24 24">
+                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"></path>
+                </svg>
+              </div>
+              <div class="text">Profile Hub</div>
+            </button>
+          </div>
+          
+          <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin: 10px 0;">
+          
+          <div class="menu-row">
+            <button class="Btn" onclick="logout()" style="margin: 0;">
+              <div class="sign">
+                <svg viewBox="0 0 512 512">
+                  <path d="M377.9 105.9L500.7 228.7c7.2 7.2 11.3 17.1 11.3 27.3s-4.1 20.1-11.3 27.3L377.9 406.1c-6.4 6.4-15 9.9-24 9.9c-18.7 0-33.9-15.2-33.9-33.9l0-62.1-128 0c-17.7 0-32-14.3-32-32l0-64c0-17.7 14.3-32 32-32l128 0 0-62.1c0-18.7 15.2-33.9 33.9-33.9c9 0 17.6 3.6 24 9.9zM160 96L96 96c-17.7 0-32 14.3-32 32l0 256c0 17.7 14.3 32 32 32l64 0c17.7 0 32 14.3 32 32s-14.3 32-32 32l-64 0c-53 0-96-43-96-96L0 128C0 75 43 32 96 32l64 0c17.7 0 32 14.3 32 32s-14.3 32-32 32z"></path>
+                </svg>
+              </div>
+              <div class="text">Logout</div>
+            </button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+</nav>
+
+<div class="dashboard-container" id="dashboardContainer">
+  <div class="login-required-box" id="dashLoginRequired" style="display:none">
+    <div class="login-icon">🔐</div><h2>Login Required</h2>
+    <button class="btn-primary" onclick="window.location.href='index.html'">Go to Home</button>
+  </div>
+
+  <div id="dashContent" style="display:none">
+    <div class="dash-header">
+      <div>
+        <h1 class="dash-title">Seller Dashboard</h1>
+        <p class="dash-sub" id="dashWelcome">Welcome back!</p>
+      </div>
+      <a href="create-listing.html" class="btn-primary">+ New Listing</a>
+    </div>
+
+    <div class="dash-stats">
+      <div class="dash-stat"><div class="ds-num" id="ds-total">0</div><div class="ds-label">Total Listings</div></div>
+      <div class="dash-stat"><div class="ds-num" id="ds-active">0</div><div class="ds-label">Active</div></div>
+      <div class="dash-stat"><div class="ds-num" id="ds-views">0</div><div class="ds-label">Total Views</div></div>
+      <div class="dash-stat"><div class="ds-num" id="ds-reveals">0</div><div class="ds-label">Contact Reveals</div></div>
+    </div>
+
+    <div class="dash-tabs">
+      <button class="dash-tab active" onclick="showDashTab(this,'active')">Active</button>
+      <button class="dash-tab" onclick="showDashTab(this,'pending')">Pending Approval</button>
+      <button class="dash-tab" onclick="showDashTab(this,'sold')">Sold</button>
+      <button class="dash-tab" onclick="showDashTab(this,'profile')">Profile</button>
+    </div>
+
+    <!-- ACTIVE TAB -->
+    <div class="dash-tab-content" id="tab-active">
+      <div id="myListingsGrid" class="dash-listings"></div>
+      <div id="noMyListings" class="no-results hidden"><h3>No active listings</h3></div>
+    </div>
+
+    <!-- PENDING TAB (NEW) -->
+    <div class="dash-tab-content hidden" id="tab-pending">
+      <div id="pendingListingsGrid" class="dash-listings"></div>
+      <div id="noPendingListings" class="no-results"><h3>No listings pending approval.</h3></div>
+    </div>
+
+    <!-- SOLD TAB -->
+    <div class="dash-tab-content hidden" id="tab-sold">
+      <div id="soldListingsGrid" class="dash-listings"></div>
+    </div>
+
+    <!-- PROFILE TAB -->
+    <div class="dash-tab-content hidden" id="tab-profile">
+      <div class="profile-edit-box">
+        <h3>Your Seller Profile</h3>
+        <div class="setup-grid">
+          <div class="form-group"><label>WhatsApp</label><input type="tel" class="auth-input" id="prof-whatsapp"></div>
+          <div class="form-group"><label>Discord</label><input type="text" class="auth-input" id="prof-discord"></div>
+        </div>
+        <button class="btn-primary" onclick="updateProfile()">Save Profile</button>
+        <div id="profileSaved" class="success-msg hidden">✅ Saved!</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+  const user = JSON.parse(localStorage.getItem('am_user') || 'null');
+  if (!user) { document.getElementById('dashLoginRequired').style.display = 'flex'; } 
+  else {
+    document.getElementById('dashContent').style.display = 'block';
+    document.getElementById('dashWelcome').textContent = 'Welcome back, ' + user.name + '!';
+    if(document.getElementById('avatarInitial')) document.getElementById('avatarInitial').textContent = user.name[0].toUpperCase();
+    await fetchAllListingsFromDB(); 
+    loadDashboard(user);
+  }
+});
+
+async function fetchAllListingsFromDB() {
+  try {
+    const res = await fetch('http://localhost:5000/api/listings');
+    window.GLOBAL_LISTINGS = await res.json();
+  } catch(e) { window.GLOBAL_LISTINGS = []; }
+}
+
+function loadDashboard(user) {
+  const allListings = window.GLOBAL_LISTINGS || [];
+  const myListings = allListings.filter(l => l.sellerId === user.email);
+  
+  const active = myListings.filter(l => l.status === 'active');
+  const pending = myListings.filter(l => l.status === 'pending');
+  const sold = myListings.filter(l => l.status === 'sold');
+  
+  document.getElementById('ds-total').textContent = myListings.length;
+  document.getElementById('ds-active').textContent = active.length;
+
+  // Active Grid
+  const grid = document.getElementById('myListingsGrid');
+  if (active.length === 0) document.getElementById('noMyListings').classList.remove('hidden');
+  else grid.innerHTML = active.map(l => renderDashCard(l)).join('');
+
+  // Pending Grid
+  const pendingGrid = document.getElementById('pendingListingsGrid');
+  if (pending.length === 0) document.getElementById('noPendingListings').classList.remove('hidden');
+  else {
+      document.getElementById('noPendingListings').classList.add('hidden');
+      pendingGrid.innerHTML = pending.map(l => renderDashCard(l)).join('');
+  }
+
+  // Sold Grid
+  const soldGrid = document.getElementById('soldListingsGrid');
+  soldGrid.innerHTML = sold.map(l => renderDashCard(l)).join('');
+
+  // Load Profile
+  const profile = JSON.parse(localStorage.getItem('am_seller_profile') || '{}');
+  document.getElementById('prof-whatsapp').value = profile.whatsapp || ''; 
+  document.getElementById('prof-discord').value = profile.discord || '';
+}
+
+function renderDashCard(l) {
+  const img = l.images && l.images[0] ? `<img src="${l.images[0]}" alt="">` : '<div class="card-img-placeholder">🎮</div>';
+  return `
+    <div class="dash-listing-card">
+      <div class="dlc-img">${img}</div>
+      <div class="dlc-info">
+        <h4>${l.title}</h4>
+        <p class="dlc-price">₹${(l.price||0).toLocaleString('en-IN')}</p>
+        <span style="font-size: 12px; color: ${l.status === 'pending' ? '#f59e5b' : 'var(--accent-cyan)'}; font-weight: bold;">STATUS: ${l.status.toUpperCase()}</span>
+      </div>
+      <div class="dlc-actions">
+        ${l.status === 'active' ? `<button class="btn-sold sm" onclick="markSold('${l._id}')">Mark Sold</button>` : ''}
+        <button class="button delete-btn" onclick="deleteListing('${l._id}', this)">
+        <svg viewBox="0 0 448 512" class="svgIcon">
+        <path d="M135.2 17.7L128 32H32C14.3 32 0 46.3 0 64S14.3 96 32 96H416c17.7 0 32-14.3 32-32s-14.3-32-32-32H320l-7.2-14.3C307.4 6.8 296.3 0 284.2 0H163.8c-12.1 0-23.2 6.8-28.6 17.7zM416 128H32L53.2 467c1.6 25.3 22.6 45 47.9 45H346.9c25.3 0 46.3-19.7 47.9-45L416 128z"></path>
+        </svg>
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+async function markSold(id) {
+  if (!confirm('Mark as sold?')) return;
+  await fetch(`http://localhost:5000/api/listings/${id}`, { method: 'PUT' });
+  location.reload();
+}
+async function deleteListing(id) {
+  if (!confirm('Delete permanently?')) return;
+  await fetch(`http://localhost:5000/api/listings/${id}`, { method: 'DELETE' });
+  location.reload();
+}
+
+function updateProfile() {
+  const profile = JSON.parse(localStorage.getItem('am_seller_profile') || '{}');
+  profile.whatsapp = document.getElementById('prof-whatsapp').value; 
+  profile.discord = document.getElementById('prof-discord').value;
+  localStorage.setItem('am_seller_profile', JSON.stringify(profile));
+  document.getElementById('profileSaved').classList.remove('hidden');
+  setTimeout(() => document.getElementById('profileSaved').classList.add('hidden'), 2000);
+}
+
+function showDashTab(btn, tab) {
+  document.querySelectorAll('.dash-tab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.dash-tab-content').forEach(c => c.classList.add('hidden'));
+  btn.classList.add('active');
+  document.getElementById('tab-' + tab).classList.remove('hidden');
+}
+function toggleUserMenu() { document.getElementById('userMenu')?.classList.toggle('hidden'); }
+function logout() { localStorage.removeItem('am_user'); location.href = 'index.html'; }
+</script>
+</body>
+</html>

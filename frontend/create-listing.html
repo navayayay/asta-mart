@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>List Your Account — Asta Mart</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+  .api-terminal { background: #0a0a0c; border: 1px solid #333; border-radius: 8px; padding: 20px; font-family: monospace; color: #0f0; margin-top: 20px; display: none; }
+  .api-log { margin-bottom: 5px; opacity: 0; animation: fadeIn 0.3s forwards; }
+  @keyframes fadeIn { to { opacity: 1; } }
+
+  .account-summary-card { background: rgba(63, 233, 255, 0.05); border: 1px solid var(--accent-cyan); border-radius: 12px; padding: 20px; margin-bottom: 30px; display: flex; gap: 15px; align-items: center; flex-wrap: wrap; justify-content: space-between; }
+  .summary-stat { flex: 1; text-align: center; min-width: 100px; }
+  .summary-val { font-size: 24px; font-weight: bold; color: #fff; font-family: 'Barlow Condensed', sans-serif; }
+  .summary-label { font-size: 12px; color: var(--accent-cyan); text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
+  .divider { width: 1px; background: rgba(255,255,255,0.1); height: 40px; }
+
+  .instruction-box { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+  .instruction-step { display: flex; align-items: flex-start; gap: 15px; margin-bottom: 15px; }
+  .instruction-num { background: var(--accent-cyan); color: #000; font-weight: bold; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .instruction-text { color: var(--white-dim); font-size: 15px; line-height: 1.5; }
+  .instruction-text strong { color: #fff; }
+
+  .inventory-header { display: flex; border-bottom: 1px solid #333; margin-top: 40px;}
+  .inv-tab { background: #111116; border: none; padding: 15px 30px; color: #fff; font-family: var(--font-ui); font-weight: 600; cursor: pointer; border-top-left-radius: 8px; border-top-right-radius: 8px; margin-right: 5px; }
+  .inv-tab.active { background: #1a1a24; color: var(--accent-cyan); border-bottom: 2px solid var(--accent-cyan); }
+  
+  .skin-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 15px; margin-bottom: 40px; padding-top: 20px; }
+  .skin-card { background: rgba(15, 10, 30, 0.4); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 20px 15px; display: flex; flex-direction: column; align-items: center; text-align: center; }
+  .skin-card img { height: 60px; object-fit: contain; margin-bottom: 15px; filter: drop-shadow(0px 4px 6px rgba(0,0,0,0.4)); }
+  .skin-card .skin-name { color: #fff; font-size: 14px; font-weight: 600; }
+  
+  .tier-premium { border-top: 3px solid #d1548d; }   
+  .tier-exclusive { border-top: 3px solid #f59e5b; } 
+  .tier-ultra { border-top: 3px solid #f5d463; }     
+  .tier-battlepass { border-top: 3px solid #8e92a4; } 
+
+  /* IMAGE UPLOAD STYLES */
+  .upload-zone { border: 2px dashed rgba(255,255,255,0.2); padding: 40px; text-align: center; border-radius: 8px; cursor: pointer; transition: all 0.2s; background: rgba(0,0,0,0.2); }
+  .upload-zone:hover { border-color: var(--accent-cyan); background: rgba(0, 255, 240, 0.05); }
+  .upload-icon { font-size: 36px; margin-bottom: 10px; }
+  .upload-text { color: var(--white-dim); font-family: var(--font-mono); font-size: 13px; }
+  .preview-container { display: none; position: relative; margin-top: 15px; border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); }
+  .preview-image { width: 100%; height: auto; display: block; }
+  .remove-btn { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.8); color: #fff; border: 1px solid rgba(255,255,255,0.2); padding: 6px 12px; border-radius: 4px; cursor: pointer; font-family: var(--font-mono); font-size: 12px; transition: background 0.2s; }
+  .remove-btn:hover { background: var(--red); border-color: var(--red); }
+</style>
+</head>
+<body>
+<nav class="navbar">
+  <a href="index.html" class="brand-logo-link">
+    <img src="asta_mart_logo_transparent.png" alt="Asta Mart" class="nav-brand-img">
+  </a>
+  
+  <div class="nav-links" style="gap: 15px; align-items: center;">
+    <a href="browse.html" class="nav-premium-btn"><span class="nav-premium-inner">Browse Accounts</span></a>
+    <a href="get-edit.html" class="nav-premium-btn"><span class="nav-premium-inner">Get Inv Edit</span></a>
+    <a href="vault-dashboard.html" class="nav-premium-btn"><span class="nav-premium-inner" style="color: var(--accent-cyan);">Asta Vault</span></a>
+  </div>
+  
+  <div class="nav-actions" style="display: flex; align-items: center; gap: 20px;">
+    
+    <a href="saved.html" class="nav-cart-icon" title="Saved Accounts">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle>
+        <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+      </svg>
+      <span id="navCartBadge" class="cart-badge" style="display:none;">0</span>
+    </a>
+
+    <div id="guestActions" style="display: flex; gap: 15px;">
+      <button class="auth-btn-wrapper auth-btn-login" onclick="openAuth('login')">
+        <div class="auth-btn-inner">
+          <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
+          Login
+        </div>
+      </button>
+      <button class="auth-btn-wrapper auth-btn-signup" onclick="openAuth('signup')">
+        <div class="auth-btn-inner">
+          <svg viewBox="0 0 24 24"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+          Sign Up
+        </div>
+      </button>
+    </div>
+    
+    <div id="userActions" class="hidden">
+      <div class="avatar" onclick="toggleUserMenu()"><span id="avatarInitial">U</span>
+        
+        <div class="user-menu hidden" id="userMenu">
+          <div class="menu-row">
+            <button class="profile-hub-btn" onclick="window.location.href='profile.html'">
+              <div class="sign">
+                <svg viewBox="0 0 24 24">
+                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"></path>
+                </svg>
+              </div>
+              <div class="text">Profile Hub</div>
+            </button>
+          </div>
+          
+          <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin: 10px 0;">
+          
+          <div class="menu-row">
+            <button class="Btn" onclick="logout()" style="margin: 0;">
+              <div class="sign">
+                <svg viewBox="0 0 512 512">
+                  <path d="M377.9 105.9L500.7 228.7c7.2 7.2 11.3 17.1 11.3 27.3s-4.1 20.1-11.3 27.3L377.9 406.1c-6.4 6.4-15 9.9-24 9.9c-18.7 0-33.9-15.2-33.9-33.9l0-62.1-128 0c-17.7 0-32-14.3-32-32l0-64c0-17.7 14.3-32 32-32l128 0 0-62.1c0-18.7 15.2-33.9 33.9-33.9c9 0 17.6 3.6 24 9.9zM160 96L96 96c-17.7 0-32 14.3-32 32l0 256c0 17.7 14.3 32 32 32l64 0c17.7 0 32 14.3 32 32s-14.3 32-32 32l-64 0c-53 0-96-43-96-96L0 128C0 75 43 32 96 32l64 0c17.7 0 32 14.3 32 32s-14.3 32-32 32z"></path>
+                </svg>
+              </div>
+              <div class="text">Logout</div>
+            </button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+</nav>
+
+<div id="authModal" class="modal-overlay hidden"><div class="modal-box"><button class="modal-close" onclick="closeAuth()">✕</button><div class="auth-tabs"><button class="auth-tab active" onclick="switchTab('login')">Login</button><button class="auth-tab" onclick="switchTab('signup')">Sign Up</button></div><div id="loginForm" class="auth-form"><h2>Welcome Back</h2><p class="auth-sub">Enter your email address to continue</p><input type="email" placeholder="you@example.com" class="auth-input" id="loginEmail"><button class="btn-primary full" onclick="sendOTP('login')">Send Code</button><div id="loginOTPSection" class="otp-section hidden"><input type="text" placeholder="Enter 6-digit code" class="auth-input" id="loginOTP" maxlength="6"><button class="btn-primary full" onclick="verifyOTP('login')">Verify & Login</button></div></div><div id="signupForm" class="auth-form hidden"><h2>Create Account</h2><p class="auth-sub">Join Asta Mart</p><input type="text" placeholder="Full Name" class="auth-input" id="signupName"><input type="email" placeholder="you@example.com" class="auth-input" id="signupEmail"><button class="btn-primary full" onclick="sendOTP('signup')">Send Code</button><div id="signupOTPSection" class="otp-section hidden"><input type="text" placeholder="Enter 6-digit code" class="auth-input" id="signupOTP" maxlength="6"><button class="btn-primary full" onclick="verifyOTP('signup')">Verify & Create Account</button></div></div></div></div>
+<div id="sellerSetupModal" class="modal-overlay hidden"><div class="modal-box wide"><h2>Complete Your Seller Profile</h2><p class="auth-sub">One-time setup — we'll save this for all your future listings.</p><div class="setup-grid"><div class="form-group"><label>WhatsApp Number (Required for Wa.me links)</label><input type="tel" placeholder="+91..." class="auth-input" id="setup-whatsapp"></div><div class="form-group"><label>Discord Handle (Optional)</label><input type="text" placeholder="username#1234" class="auth-input" id="setup-discord"></div><div class="form-group"><label>Instagram Username (Optional)</label><input type="text" placeholder="@username" class="auth-input" id="setup-instagram"></div><div class="form-group"><label>UPI ID (Optional)</label><input type="text" placeholder="yourname@upi" class="auth-input" id="setup-upi"></div></div><div class="form-group"><label>Preferred Contact Method</label><div class="contact-chips"><span class="chip active" onclick="selectContact(this,'email')">✉️ Email</span><span class="chip" onclick="selectContact(this,'whatsapp')">💬 WhatsApp</span><span class="chip" onclick="selectContact(this,'discord')">🎮 Discord</span></div></div><button class="btn-primary full" onclick="saveSellerProfile()">Save & Continue to Listing</button></div></div>
+
+<div class="create-listing-container" style="padding-top: 100px;">
+  <div id="requireLoginMsg" class="login-required-box hidden">
+    <div class="login-icon">🔐</div>
+    <h2>Login Required</h2>
+    <p>You need to be logged in to list your account.</p>
+    <button class="btn-primary" onclick="openAuth('signup')">Sign Up / Login</button>
+  </div>
+
+  <div id="listingForm" class="listing-form hidden">
+    <div class="form-progress">
+      <div class="progress-step active" id="ps1">1. Connect Account</div>
+      <div class="progress-sep">→</div>
+      <div class="progress-step" id="ps2">2. Processing</div>
+      <div class="progress-sep">→</div>
+      <div class="progress-step" id="ps3">3. Price & Publish</div>
+    </div>
+
+    <!-- STEP 1 -->
+    <div class="form-step" id="step1">
+      <h2 class="step-title">Securely Sync Inventory</h2>
+      <p class="form-note" style="margin-bottom: 20px;">Asta Mart uses Riot's official Sign-On servers to verify your account without ever seeing your password.</p>
+      
+      <div class="instruction-box">
+        <div class="instruction-step">
+          <div class="instruction-num">1</div>
+          <div class="instruction-text">
+            <strong>Clear Previous Sessions (Optional but Recommended)</strong><br>
+            Click below to log out of any alt accounts currently active in your browser.
+            <div style="margin-top: 10px;">
+              <a href="https://auth.riotgames.com/logout" target="_blank" class="btn-ghost" style="border-color: rgba(255,255,255,0.2); color: var(--white-dim); font-size: 13px; padding: 6px 12px;">
+                <span style="margin-right: 6px;">🧹</span> Log Out of Riot
+              </a>
+            </div>
+          </div>
+        </div>
+        <div class="instruction-step">
+          <div class="instruction-num">2</div>
+          <div class="instruction-text">
+            <strong>Log into Riot Games</strong><br>
+            Click the button below to open the official Riot login page.
+            <div style="margin-top: 10px;">
+              <a href="https://auth.riotgames.com/authorize?redirect_uri=https%3A%2F%2Fplayvalorant.com%2Fopt_in&client_id=play-valorant-web-prod&response_type=token%20id_token&nonce=1&scope=openid%20link%20ban" target="_blank" class="btn-ghost" style="border-color: #ff4655; color: #ff4655;">
+                <span style="margin-right: 8px;">🔴</span> Open Official Riot Login
+              </a>
+            </div>
+          </div>
+        </div>
+        <div class="instruction-step">
+          <div class="instruction-num">3</div>
+          <div class="instruction-text">
+            <strong>Copy the URL</strong><br>
+            After you log in successfully, the page will appear completely blank. Copy the <b>entire URL</b> from the address bar.
+          </div>
+        </div>
+        <div class="instruction-step">
+          <div class="instruction-num" style="background:var(--accent-green)">4</div>
+          <div class="instruction-text">
+            <strong>Paste it here</strong><br>
+            Paste the long URL you copied into the box below.
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-top: 20px;">
+        <label>Paste your Redirect URL here:</label>
+        <input type="text" class="auth-input" id="riot-url" placeholder="https://playvalorant.com/opt_in#access_token=eyJhbGciOiJSUzI1NiI..." style="font-family: monospace; font-size: 12px; padding: 15px;">
+      </div>
+      
+      <button class="btn-primary full" style="margin-top: 10px;" id="syncBtn" onclick="processRiotURL()">Verify & Extract Data</button>
+    </div>
+
+    <!-- STEP 2 -->
+    <div class="form-step hidden" id="step2">
+      <h2 class="step-title">Extracting Data...</h2>
+      <p class="form-note">Please wait while our servers communicate with Riot Games.</p>
+      
+      <div class="sync-loader-card">
+        <div class="loader">
+          <p>Syncing</p>
+          <div class="words">
+            <span class="word">Premium Skins</span>
+            <span class="word">Match History</span>
+            <span class="word">Agent Roster</span>
+            <span class="word">VP Balance</span>
+            <span class="word">Premium Skins</span>
+          </div>
+        </div>
+      </div>
+      
+      <div id="apiTerminal" class="api-terminal" style="display: none;">
+        <div class="api-log" style="animation-delay: 0.1s">> Validating encrypted Access Token... OK</div>
+        <div class="api-log" style="animation-delay: 0.5s">> Connecting to Official API Endpoints... OK</div>
+      </div>
+    </div>
+
+    <!-- STEP 3 -->
+    <div class="form-step hidden" id="step3">
+      <h2 class="step-title">Finalize Listing</h2>
+      <p class="form-note">Your account data has been successfully verified and securely linked.</p>
+      
+      <div class="account-summary-card">
+        <div class="summary-stat">
+          <div class="summary-val" id="disp-rank">-</div>
+          <div class="summary-label">Current Rank</div>
+        </div>
+        <div class="divider"></div>
+        <div class="summary-stat">
+          <div class="summary-val" id="disp-skins">-</div>
+          <div class="summary-label">Premium Skins</div>
+        </div>
+        <div class="divider"></div>
+        <div class="summary-stat">
+          <div class="summary-val" id="disp-bp">-</div>
+          <div class="summary-label">Completed BPs</div>
+        </div>
+        <div class="divider"></div>
+        <div class="summary-stat">
+          <div class="summary-val" id="disp-vp">-</div>
+          <div class="summary-label">VP Balance</div>
+        </div>
+      </div>
+
+      <div class="inventory-section">
+        <div class="inventory-header">
+          <button class="inv-tab active" onclick="switchCreateTab('skins')">Premium Skins (<span id="tab-skin-count">0</span>)</button>
+          <button class="inv-tab" onclick="switchCreateTab('battlepass')">Battlepass (<span id="tab-bp-count">0</span>)</button>
+        </div>
+        
+        <!-- Premium Tab Content -->
+        <div id="create-tab-skins" class="inv-content" style="display: block;">
+           <div class="skin-grid" id="visual-skin-grid"></div>
+        </div>
+        
+        <!-- Battlepass Tab Content -->
+        <div id="create-tab-battlepass" class="inv-content" style="display: none;">
+           <div class="skin-grid" id="visual-bp-grid"></div>
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-top: 40px;">
+        <label>Inventory Edit / Showcase Image (Optional)</label>
+        
+        <div class="upload-zone" id="uploadZone">
+          <div class="upload-icon">📸</div>
+          <div class="upload-text">Click to upload your Inventory Edit Montage (JPG/PNG)</div>
+          <p style="font-size: 10px; color: var(--white-dim); margin-top: 6px;">This image will replace the default placeholder on the Browse page.</p>
+          <input type="file" id="l-image" accept="image/*" style="display: none;">
+        </div>
+
+        <div class="preview-container" id="previewContainer">
+          <img id="imagePreview" class="preview-image" src="">
+          <button class="remove-btn" onclick="removeImage()">✕ Remove Image</button>
+        </div>
+      </div>
+
+      <div class="upsell-banner" style="background: linear-gradient(135deg, rgba(255, 70, 85, 0.1) 0%, rgba(0, 0, 0, 0.4) 100%); border: 1px solid rgba(255, 70, 85, 0.3); border-radius: 8px; padding: 20px; margin-top: 15px; display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">
+        <div style="font-size: 40px; filter: drop-shadow(0 0 10px rgba(255,70,85,0.4));">🎨</div>
+        <div style="flex: 1; min-width: 250px;">
+          <h4 style="font-family: var(--font-display); font-size: 20px; font-weight: 800; text-transform: uppercase; color: #fff; margin-bottom: 4px;">Want to sell 3x faster?</h4>
+          <p style="font-family: var(--font-mono); font-size: 13px; color: var(--white-dim); line-height: 1.4;">Listings with high-quality visual showcases sell significantly faster. Let our editors create a premium graphic of your inventory for just <strong id="dynamic-edit-price" style="color: var(--accent-cyan); font-size: 15px;">₹--</strong>.</p>
+        </div>
+        <div>
+          <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; background: rgba(0,0,0,0.5); padding: 10px 15px; border-radius: 6px; border: 1px solid var(--border-bright);">
+            <input type="checkbox" id="l-upsell" style="width: 18px; height: 18px; accent-color: var(--red);">
+            <span style="font-family: var(--font-ui); font-weight: bold; font-size: 14px; color: #fff;">Yes, I want this!</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-top: 30px;">
+        <label>Listing Title (Auto-Generated, you can edit this)</label>
+        <input type="text" class="auth-input" id="l-title" placeholder="e.g. Radiant Account | 47 Skins | IND (AP) Server">
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Asking Price (₹) *</label>
+          <input type="number" class="auth-input" id="l-price" placeholder="e.g. 12000">
+        </div>
+        <div class="form-group">
+          <label>Email Status *</label>
+          <select class="auth-input" id="l-email">
+            <option value="">Select Option</option>
+            <option value="yes">Yes — Original Email Included</option>
+            <option value="no">No — Transfer to New Mail (Full Access)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Has this account been banned/restricted recently?</label>
+        <select class="auth-input" id="l-ban">
+          <option value="no">No — Clean Account</option>
+          <option value="yes">Yes — Previously Restricted</option>
+        </select>
+      </div>
+
+      <div class="btn-row" style="margin-top: 40px;">
+        <button class="btn-ghost" onclick="window.location.reload()">Cancel</button>
+        <button class="btn-primary large" onclick="submitListing()">🚀 Publish Listing</button>
+      </div>
+    </div>
+
+    <!-- SUCCESS SCREEN -->
+    <div class="form-step hidden" id="stepSuccess">
+      <div class="success-box" style="text-align: center; padding: 40px; background: rgba(255,255,255,0.05); border-radius: 8px;">
+        <div class="success-icon" style="font-size: 64px; margin-bottom: 20px;">⏳</div>
+        <h2>Listing Pending Approval</h2>
+        <p style="color: var(--white-dim); margin-bottom: 30px;">Your account has been submitted! An admin will verify the details shortly. Once approved, it will be visible to buyers on Asta Mart.</p>
+        <div class="btn-row center" style="justify-content: center;">
+          <a href="dashboard.html" class="btn-ghost">View Dashboard</a>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
+<script src="effects.js"></script>
+
+<script>
+let parsedRiotData = {};
+let uploadedImageBase64 = null; 
+
+document.addEventListener('DOMContentLoaded', () => {
+  const user = JSON.parse(localStorage.getItem('am_user') || 'null');
+  if (!user) {
+    document.getElementById('requireLoginMsg').classList.remove('hidden');
+  } else {
+    document.getElementById('listingForm').classList.remove('hidden');
+    const profile = JSON.parse(localStorage.getItem('am_seller_profile') || 'null');
+    if (!profile) {
+      setTimeout(() => document.getElementById('sellerSetupModal').classList.remove('hidden'), 500);
+    }
+  }
+});
+
+function switchCreateTab(tabId) {
+    document.querySelectorAll('.inventory-header .inv-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('#step3 .inv-content').forEach(c => c.style.display = 'none');
+    event.currentTarget.classList.add('active');
+    document.getElementById('create-tab-' + tabId).style.display = 'block';
+}
+
+document.getElementById('uploadZone').addEventListener('click', () => {
+  document.getElementById('l-image').click();
+});
+
+document.getElementById('l-image').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(event) {
+    uploadedImageBase64 = event.target.result; 
+    document.getElementById('imagePreview').src = uploadedImageBase64;
+    document.getElementById('uploadZone').style.display = 'none';
+    document.getElementById('previewContainer').style.display = 'block';
+  };
+  reader.readAsDataURL(file); 
+});
+
+function removeImage() {
+  uploadedImageBase64 = null;
+  document.getElementById('l-image').value = '';
+  document.getElementById('imagePreview').src = '';
+  document.getElementById('previewContainer').style.display = 'none';
+  document.getElementById('uploadZone').style.display = 'block';
+}
+
+function nextStep(current, next) {
+  document.getElementById('step' + current).classList.add('hidden');
+  document.getElementById('step' + next).classList.remove('hidden');
+  document.querySelectorAll('.progress-step').forEach((s,i) => {
+    s.classList.toggle('active', i < next);
+  });
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+async function processRiotURL() {
+  const pastedUrl = document.getElementById('riot-url').value.trim();
+  if(!pastedUrl) return alert('Please paste the URL from the blank Riot page first.');
+  
+  nextStep(1, 2);
+  const term = document.getElementById('apiTerminal');
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); 
+
+    const res = await fetch('http://localhost:5000/api/riot/sync-url', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ redirectUrl: pastedUrl }),
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+    
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+
+    parsedRiotData = data; 
+
+    setTimeout(() => { term.innerHTML += '<div class="api-log">> Fetching Account Level, MMR (Rank) and Agents... OK</div>'; }, 500);
+    setTimeout(() => { term.innerHTML += '<div class="api-log">> Scraping inventory (Filtering Premium Skins, BPs & Limited)... OK</div>'; }, 1200);
+    setTimeout(() => { term.innerHTML += '<div class="api-log" style="color: #3fe9ff; font-weight: bold;">> SYNC COMPLETE. Preparing listing...</div>'; }, 2000);
+
+    setTimeout(() => {
+      const countryCode = data.country ? data.country.toUpperCase() : '';
+      parsedRiotData.displayRegion = countryCode ? `${countryCode} (${data.region})` : data.region;
+
+      const premCount = data.premiumSkins ? data.premiumSkins.length : 0;
+      const bpCount = data.battlepassSkins ? data.battlepassSkins.length : 0;
+
+      document.getElementById('disp-rank').textContent = data.rank;
+      document.getElementById('disp-skins').textContent = premCount; 
+      document.getElementById('disp-bp').textContent = bpCount; 
+      document.getElementById('disp-vp').textContent = data.vpBalance;
+      
+      document.getElementById('tab-skin-count').textContent = premCount;
+      document.getElementById('tab-bp-count').textContent = bpCount;
+
+      document.getElementById('l-title').value = data.autoTitle || `${data.rank} | ${premCount} Premium Skins | ${parsedRiotData.displayRegion} Server`;
+      
+      let calcPrice = 0;
+      if (premCount > 0) {
+        calcPrice = premCount > 10 ? premCount * 2 : premCount * 3;
+      }
+      document.getElementById('dynamic-edit-price').textContent = '₹' + calcPrice;
+      
+      // Render Premium Skins Grid
+      const gridSkins = document.getElementById('visual-skin-grid');
+      gridSkins.innerHTML = ''; 
+      (data.premiumSkins || []).forEach(skin => {
+        let tierClass = 'tier-premium'; 
+        if(skin.tier === 'e046854e-406c-37f4-6607-19a9ba8426fc') tierClass = 'tier-exclusive';
+        if(skin.tier === '411e4a55-4e59-7757-41f0-86a53f101bb5') tierClass = 'tier-ultra';
+
+        gridSkins.innerHTML += `
+          <div class="skin-card ${tierClass}">
+            <img src="${skin.icon}" alt="${skin.name}">
+            <div class="skin-name">${skin.name}</div>
+          </div>
+        `;
+      });
+
+      // Render Battlepass Grid
+      const gridBp = document.getElementById('visual-bp-grid');
+      gridBp.innerHTML = ''; 
+      (data.battlepassSkins || []).forEach(skin => {
+        gridBp.innerHTML += `
+          <div class="skin-card tier-battlepass">
+            <img src="${skin.icon}" alt="${skin.name}">
+            <div class="skin-name">${skin.name}</div>
+          </div>
+        `;
+      });
+
+      nextStep(2, 3);
+    }, 3200); 
+
+  } catch (error) {
+    console.error(error);
+    if (error.name === 'AbortError') {
+       alert("Sync failed: The server took too long to respond. Riot APIs might be slow right now. Try again.");
+    } else {
+       alert(error.message);
+    }
+    nextStep(2, 1); 
+  }
+}
+
+async function submitListing() {
+  const price = parseInt(document.getElementById('l-price').value || '0');
+  const emailVal = document.getElementById('l-email').value;
+  const wantsEdit = document.getElementById('l-upsell')?.checked || false;
+
+  if (price <= 0) return alert('Please enter a valid asking price.');
+  if (!emailVal) return alert('Please select an Email Status option.');
+
+  const user = JSON.parse(localStorage.getItem('am_user'));
+  const profile = JSON.parse(localStorage.getItem('am_seller_profile') || '{}');
+  
+  const complexSkinArray = (parsedRiotData.premiumSkins || []).map(s => JSON.stringify({ name: s.name, icon: s.icon, tier: s.tier }));
+  const complexBpArray = (parsedRiotData.battlepassSkins || []).map(s => JSON.stringify({ name: s.name, icon: s.icon, tier: 'battlepass' }));
+  const complexAgentArray = (parsedRiotData.unlockedAgents || []).map(a => JSON.stringify({ name: a.name, icon: a.icon }));
+
+  const limitedArr = parsedRiotData.limitedSkins || [];
+  const hasLimited = limitedArr.length > 0;
+  const limitedDetailStr = hasLimited ? limitedArr.map(s => s.name).join(', ') : '';
+
+  const listing = {
+    sellerId: user.email,
+    sellerName: user.name,
+    sellerPhone: profile.whatsapp || '',  
+    sellerDiscord: profile.discord || '', 
+    title: document.getElementById('l-title').value,
+    price: price,
+    emailAccess: emailVal === 'yes',
+    banHistory: document.getElementById('l-ban').value === 'yes',
+    status: 'active',
+    region: parsedRiotData.displayRegion || parsedRiotData.region,
+    rank: parsedRiotData.rank,
+    peakRank: parsedRiotData.peakRank,
+    level: parsedRiotData.level,
+    skinCount: parsedRiotData.premiumSkins ? parsedRiotData.premiumSkins.length : 0, 
+    skinTags: complexSkinArray, 
+    battlepassTags: complexBpArray, 
+    agents: complexAgentArray,  
+    agentsCount: parsedRiotData.agentsCount,
+    vpBalance: parsedRiotData.vpBalance,
+    bpCompleted: parsedRiotData.battlepassSkins ? parsedRiotData.battlepassSkins.length : 0, 
+    limited: hasLimited,
+    limitedDetail: limitedDetailStr, 
+    images: uploadedImageBase64 ? [uploadedImageBase64] : [] 
+  };
+
+  listing.tags = getCleanTags(listing);
+  listing.aiSummary = `${listing.rank} account with ${listing.skinCount} premium skins. ${listing.region} server. ${listing.emailAccess ? 'Original email included' : 'Transfer to new mail (Full Access)'}. ₹${listing.price.toLocaleString('en-IN')}${listing.banHistory ? ' — previously restricted.' : '.'}`;
+
+  try {
+    const res = await fetch('http://localhost:5000/api/listings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(listing)
+    });
+    
+    if (!res.ok) throw new Error('Failed to save to database');
+
+    document.getElementById('step3').classList.add('hidden');
+    document.getElementById('stepSuccess').classList.remove('hidden');
+    
+    if (wantsEdit) {
+        const premCount = parsedRiotData.premiumSkins ? parsedRiotData.premiumSkins.length : 0;
+        const calcPrice = premCount === 0 ? 49 : (premCount > 10 ? premCount * 2 : premCount * 3);
+
+        await fetch('http://localhost:5000/api/orders/inventory-edit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sellerName: user.name,
+            sellerPhone: profile.whatsapp,
+            sellerDiscord: profile.discord,
+            title: listing.title,
+            skins: parsedRiotData.premiumSkins.map(s => s.name),
+            price: calcPrice,
+            transactionId: "Pending Verification"
+          })
+        }).catch(err => console.error("Webhook order failed silently:", err));
+
+        document.getElementById('stepSuccess').innerHTML = `
+          <div class="success-box" style="text-align: center; padding: 40px; background: rgba(0,0,0,0.6); border: 1px solid var(--accent-cyan); border-radius: 8px;">
+            <div class="success-icon" style="font-size: 64px; margin-bottom: 10px;">⏳</div>
+            <h2>Listing Pending & Order Received!</h2>
+            <p style="color: var(--white-dim); margin-bottom: 20px;">Your account is pending admin approval. Complete your Inventory Edit order below so we can process it while you wait.</p>
+            
+            <div style="background: rgba(255, 70, 85, 0.1); border: 1px solid var(--red); border-radius: 8px; padding: 20px; margin: 20px 0;">
+                <h3 style="color: #fff; margin-bottom: 10px;">Complete Your Payment</h3>
+                <p style="font-size: 14px; color: var(--white-dim); margin-bottom: 15px;">To receive your custom edit on your listing and via WhatsApp/Discord within 1-2 days, pay the amount below via UPI.</p>
+                
+                <div style="font-family: var(--font-display); font-size: 42px; color: var(--red); font-weight: 900;">₹${calcPrice}</div>
+                <div style="font-family: var(--font-mono); font-size: 20px; color: #fff; margin: 15px 0;">UPI ID: <strong style="color: var(--accent-cyan);">navay@fam</strong></div>
+                
+                <p style="font-size: 12px; color: var(--white-dim);">*Take a screenshot of your payment. Our team will verify and fulfill your order automatically.</p>
+            </div>
+
+            <div class="btn-row center" style="justify-content: center;">
+              <a href="dashboard.html" class="btn-ghost">View Dashboard</a>
+            </div>
+          </div>
+        `;
+    }
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } catch (err) {
+    console.error(err);
+    alert('Error saving listing. Please ensure the backend Node.js server is running.');
+  }
+}
+
+function getCleanTags(l) {
+  const cleanRegion = (l.region || 'AP').replace(/[^a-zA-Z0-9]/g, ''); 
+  const displayTags = [
+    `#${l.skinCount || 0}PremiumSkins`,
+    `#${(l.rank || 'Unranked').replace(' ', '')}`,
+    `#${cleanRegion}Server`,
+    l.banHistory ? '#PreviouslyRestricted' : '#NoBanHistory',
+    l.emailAccess ? '#OriginalEmail' : '#FullAccess'
+  ];
+  if (l.skinCount > 0 && l.price > 0) {
+    displayTags.push(`#₹${Math.round(l.price / l.skinCount)}PerPremiumSkin`);
+  }
+  return displayTags;
+}
+</script>
+</body>
+</html>

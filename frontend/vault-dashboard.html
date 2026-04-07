@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Asta Vault Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+  /* EXPLORANT-STYLE CARD CSS */
+  .card {
+    box-sizing: border-box;
+    width: 190px;
+    height: 254px;
+    background: rgba(217, 217, 217, 0.58);
+    border: 1px solid white;
+    box-shadow: 12px 17px 51px rgba(0, 0, 0, 0.22);
+    backdrop-filter: blur(6px);
+    border-radius: 17px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.5s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+    font-weight: bolder;
+    color: black;
+    position: relative;
+    overflow: hidden;
+  }
+  .card:hover {
+    border: 1px solid black;
+    transform: scale(1.05);
+  }
+  .card:active {
+    transform: scale(0.95) rotateZ(1.7deg);
+  }
+
+  /* VAULT GRID & SLOTS */
+  .vault-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 30px; margin-top: 30px; }
+  .slot-container { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  
+  .empty-card { background: rgba(0,0,0,0.4); border: 2px dashed rgba(63, 233, 255, 0.5); color: var(--accent-cyan); display: flex; flex-direction: column; justify-content: center; align-items: center; }
+  .empty-card:hover { border-color: #fff; color: #fff; }
+  .time-left { font-size: 11px; color: var(--red); font-family: var(--font-mono); font-weight: bold; background: rgba(255, 70, 85, 0.1); padding: 4px 8px; border-radius: 4px;}
+  .slot-actions { display: flex; gap: 5px; width: 100%; justify-content: center;}
+
+  /* SYNC MODAL & INSTRUCTIONS */
+  .sync-modal-box { background: var(--bg-dark); border: 1px solid var(--accent-cyan); border-radius: 12px; padding: 30px; max-width: 600px; width: 90%; position: relative; box-shadow: 0 10px 40px rgba(0,0,0,0.8); }
+  .instruction-box { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+  .instruction-step { display: flex; align-items: flex-start; gap: 15px; margin-bottom: 15px; }
+  .instruction-num { background: var(--accent-cyan); color: #000; font-weight: bold; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-family: var(--font-mono); }
+  .instruction-text { color: var(--white-dim); font-size: 14px; line-height: 1.5; }
+  .instruction-text strong { color: #fff; font-family: var(--font-ui); }
+</style>
+</head>
+<body>
+
+<nav class="navbar">
+  <a href="index.html" class="brand-logo-link">
+    <img src="asta_mart_logo_transparent.png" alt="Asta Mart" class="nav-brand-img">
+  </a>
+  
+  <div class="nav-links" style="gap: 15px; align-items: center;">
+    <a href="browse.html" class="nav-premium-btn"><span class="nav-premium-inner">Browse Accounts</span></a>
+    <a href="get-edit.html" class="nav-premium-btn"><span class="nav-premium-inner">Get Inv Edit</span></a>
+    <a href="vault-dashboard.html" class="nav-premium-btn"><span class="nav-premium-inner" style="color: var(--accent-cyan);">Asta Vault</span></a>
+  </div>
+  
+  <div class="nav-actions" style="display: flex; align-items: center; gap: 20px;">
+    
+    <a href="saved.html" class="nav-cart-icon" title="Saved Accounts">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle>
+        <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+      </svg>
+      <span id="navCartBadge" class="cart-badge" style="display:none;">0</span>
+    </a>
+
+    <div id="guestActions" style="display: flex; gap: 15px;">
+      <button class="auth-btn-wrapper auth-btn-login" onclick="openAuth('login')">
+        <div class="auth-btn-inner">
+          <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
+          Login
+        </div>
+      </button>
+      <button class="auth-btn-wrapper auth-btn-signup" onclick="openAuth('signup')">
+        <div class="auth-btn-inner">
+          <svg viewBox="0 0 24 24"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+          Sign Up
+        </div>
+      </button>
+    </div>
+    
+    <div id="userActions" class="hidden">
+      <div class="avatar" onclick="toggleUserMenu()"><span id="avatarInitial">U</span>
+        
+        <div class="user-menu hidden" id="userMenu">
+          <div class="menu-row">
+            <button class="profile-hub-btn" onclick="window.location.href='profile.html'">
+              <div class="sign">
+                <svg viewBox="0 0 24 24">
+                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"></path>
+                </svg>
+              </div>
+              <div class="text">Profile Hub</div>
+            </button>
+          </div>
+          
+          <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin: 10px 0;">
+          
+          <div class="menu-row">
+            <button class="Btn" onclick="logout()" style="margin: 0;">
+              <div class="sign">
+                <svg viewBox="0 0 512 512">
+                  <path d="M377.9 105.9L500.7 228.7c7.2 7.2 11.3 17.1 11.3 27.3s-4.1 20.1-11.3 27.3L377.9 406.1c-6.4 6.4-15 9.9-24 9.9c-18.7 0-33.9-15.2-33.9-33.9l0-62.1-128 0c-17.7 0-32-14.3-32-32l0-64c0-17.7 14.3-32 32-32l128 0 0-62.1c0-18.7 15.2-33.9 33.9-33.9c9 0 17.6 3.6 24 9.9zM160 96L96 96c-17.7 0-32 14.3-32 32l0 256c0 17.7 14.3 32 32 32l64 0c17.7 0 32 14.3 32 32s-14.3 32-32 32l-64 0c-53 0-96-43-96-96L0 128C0 75 43 32 96 32l64 0c17.7 0 32 14.3 32 32s-14.3 32-32 32z"></path>
+                </svg>
+              </div>
+              <div class="text">Logout</div>
+            </button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+</nav>
+
+<div class="container" style="padding: 100px 20px;">
+  <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 20px;">
+    <div>
+      <h1 style="font-family: var(--font-display); font-size: 36px; text-transform: uppercase;">Your Asta Vault</h1>
+      <p style="color: var(--white-dim); font-family: var(--font-mono);">Slots Used: <span id="slot-count" style="color: #fff; font-weight: bold;">0</span> / 10</p>
+    </div>
+    <div style="text-align: right; font-size: 12px; color: var(--white-dim);">Accounts auto-delete after 7 days.</div>
+  </div>
+
+  <div class="vault-grid" id="vaultGrid">
+    </div>
+</div>
+
+<div id="syncModal" class="modal-overlay hidden">
+  <div class="sync-modal-box">
+    <button class="modal-close" onclick="document.getElementById('syncModal').classList.add('hidden')">✕</button>
+    <h2 style="font-family: var(--font-display); color: #fff; text-transform: uppercase; margin-bottom: 5px;">Add to Vault</h2>
+    <p style="color: var(--white-dim); font-size: 13px; margin-bottom: 20px;">Follow these steps to securely generate your showcase card.</p>
+    
+    <div class="instruction-box">
+      <div class="instruction-step">
+        <div class="instruction-num">1</div>
+        <div class="instruction-text">
+          <strong>Clear Previous Sessions (Recommended)</strong><br>
+          Click below to log out of any active accounts in your browser so you don't sync the wrong one.<br>
+          <a href="https://auth.riotgames.com/logout" target="_blank" class="btn-ghost" style="border-color: rgba(255,255,255,0.2); color: var(--white-dim); padding: 8px 16px; font-size: 13px; margin-top: 10px; display: inline-block;">🧹 Log Out of Riot</a>
+        </div>
+      </div>
+      <div class="instruction-step">
+        <div class="instruction-num">2</div>
+        <div class="instruction-text">
+          <strong>Log into Riot Games</strong><br>
+          Click the button below to open the official Riot login page. Log into the account you want to showcase.<br>
+          <a href="https://auth.riotgames.com/authorize?redirect_uri=https%3A%2F%2Fplayvalorant.com%2Fopt_in&client_id=play-valorant-web-prod&response_type=token%20id_token&nonce=1&scope=openid%20link%20ban" target="_blank" class="btn-ghost" style="border-color: #ff4655; color: #ff4655; padding: 8px 16px; font-size: 13px; margin-top: 10px; display: inline-block;">🔴 Open Official Riot Login</a>
+        </div>
+      </div>
+      <div class="instruction-step">
+        <div class="instruction-num" style="background:var(--accent-green)">3</div>
+        <div class="instruction-text">
+          <strong>Paste the Blank Page URL</strong><br>
+          After successfully logging in, the page will turn completely blank. Copy the <b>entire URL</b> from your browser's address bar and paste it below.
+        </div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <input type="text" id="vault-riot-url" class="auth-input" placeholder="https://playvalorant.com/opt_in#access_token=eyJhbGciOiJSUzI1NiI..." style="font-family: monospace; font-size: 12px; padding: 15px;">
+    </div>
+    
+    <button class="btn-primary full" onclick="syncToVault()" id="syncBtn" style="margin-top: 10px; padding: 15px; font-size: 16px;">Extract Data & Save to Vault</button>
+    <div id="syncStatus" style="font-family: monospace; color: var(--accent-cyan); margin-top: 15px; text-align: center;"></div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', loadVault);
+
+async function loadVault() {
+  const user = JSON.parse(localStorage.getItem('am_user'));
+  if (!user) { window.location = 'index.html'; return; }
+  
+  if (document.getElementById('avatarInitial')) {
+      document.getElementById('avatarInitial').textContent = user.name ? user.name[0].toUpperCase() : 'U';
+  }
+
+  try {
+    const res = await fetch(`http://localhost:5000/api/vault/user/${user.email}`);
+    const vaultItems = await res.json();
+    
+    document.getElementById('slot-count').textContent = vaultItems.length;
+    const grid = document.getElementById('vaultGrid');
+    grid.innerHTML = '';
+
+    // Render Filled Slots
+    vaultItems.forEach(item => {
+      const data = item.accountData;
+      const timeLeft = Math.ceil((new Date(item.expiresAt) - new Date()) / (1000 * 60 * 60 * 24));
+      
+      const currentPath = window.location.pathname.replace('vault-dashboard.html', '');
+      const link = `${window.location.origin}${currentPath}vault.html?v=${item.slug}`;
+
+      // Set Image & Display Name directly on the card
+      const cardImg = data.playerCardImage || 'https://media.valorant-api.com/playercards/9fb348bc-41a0-91ad-8a3e-818035c4e561/largeart.png';
+      const displayName = data.riotId || 'Valorant Player';
+
+      grid.innerHTML += `
+        <div class="slot-container">
+          <div class="card" onclick="window.open('${link}', '_blank')" title="Click to view public showcase" style="background: url('${cardImg}') center/cover no-repeat; padding: 0; border: 1px solid rgba(255,255,255,0.2);">
+            
+            <div style="position: absolute; bottom: 0; width: 100%; height: 50%; background: linear-gradient(to top, rgba(0,0,0,0.95), transparent); z-index: 1; border-radius: 0 0 16px 16px;"></div>
+            
+            <div style="position: relative; z-index: 2; height: 100%; width: 100%; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 20px; box-sizing: border-box;">
+              <div style="color: #fff; font-family: var(--font-display); font-size: 22px; font-weight: 900; text-shadow: 0 2px 5px #000; letter-spacing: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 15px; width: 100%; text-align: center;">${displayName}</div>
+            </div>
+          </div>
+
+          <div class="time-left">⏳ ${timeLeft} Days Left</div>
+          <div class="slot-actions">
+            <button class="btn-primary sm" onclick="copyLink('${link}')">Copy Link</button>
+            <button class="btn-danger sm" onclick="deleteVault('${item._id}')">🗑️</button>
+          </div>
+        </div>
+      `;
+    });
+
+    // Render Empty Slots up to 10
+    const emptySlots = 10 - vaultItems.length;
+    for (let i = 0; i < emptySlots; i++) {
+      grid.innerHTML += `
+        <div class="slot-container">
+          <div class="card empty-card" style="padding: 0;" onclick="document.getElementById('syncModal').classList.remove('hidden')">
+            <div style="font-size: 40px; margin-bottom: 10px;">+</div>
+            <div style="font-family: var(--font-ui); font-weight: bold; color: var(--accent-cyan);">Add to Vault</div>
+          </div>
+        </div>
+      `;
+    }
+  } catch (err) {
+    console.error(err);
+    alert('Failed to load Vault. Make sure backend is running.');
+  }
+}
+
+async function syncToVault() {
+  const url = document.getElementById('vault-riot-url').value.trim();
+  const user = JSON.parse(localStorage.getItem('am_user'));
+  if (!url) return alert('Please paste the Riot URL first.');
+  
+  const status = document.getElementById('syncStatus');
+  status.textContent = "> Connecting to Riot Games... please wait.";
+  document.getElementById('syncBtn').disabled = true;
+
+  try {
+    const res = await fetch('http://localhost:5000/api/vault/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ redirectUrl: url, ownerEmail: user.email })
+    });
+    
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+
+    status.style.color = "var(--accent-green)";
+    status.textContent = "> Success! Account added to Vault.";
+    setTimeout(() => location.reload(), 1000);
+  } catch (err) {
+    status.style.color = "var(--red)";
+    status.textContent = "> Error: " + err.message;
+    document.getElementById('syncBtn').disabled = false;
+  }
+}
+
+async function deleteVault(id) {
+  if(!confirm("Remove this account from your Vault?")) return;
+  try {
+    await fetch(`http://localhost:5000/api/vault/${id}`, { method: 'DELETE' });
+    location.reload();
+  } catch(err) {
+    alert("Failed to delete.");
+  }
+}
+
+function copyLink(link) {
+  navigator.clipboard.writeText(link);
+  alert('Public Showcase Link copied to clipboard!');
+}
+
+function toggleUserMenu() {
+  document.getElementById('userMenu')?.classList.toggle('hidden');
+}
+
+function logout() {
+  localStorage.removeItem('am_user');
+  location.href = 'index.html';
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Get Inventory Edit — Asta Mart</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+  .api-terminal { background: #0a0a0c; border: 1px solid #333; border-radius: 8px; padding: 20px; font-family: monospace; color: #0f0; margin-top: 20px; display: none; }
+  .api-log { margin-bottom: 5px; opacity: 0; animation: fadeIn 0.3s forwards; }
+  @keyframes fadeIn { to { opacity: 1; } }
+
+  .instruction-box { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+  .instruction-step { display: flex; align-items: flex-start; gap: 15px; margin-bottom: 15px; }
+  .instruction-num { background: var(--accent-cyan); color: #000; font-weight: bold; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .instruction-text { color: var(--white-dim); font-size: 15px; line-height: 1.5; }
+  .instruction-text strong { color: #fff; }
+  
+  .upi-box { background: rgba(0,0,0,0.4); border: 1px solid var(--accent-cyan); border-radius: 8px; padding: 30px; text-align: center; margin-top: 20px; }
+  .upi-id { font-family: var(--font-display); font-size: 32px; color: #fff; margin: 15px 0; letter-spacing: 2px; }
+  .upi-amount { font-family: var(--font-display); font-size: 48px; color: var(--red); font-weight: 900; }
+</style>
+</head>
+<body>
+<nav class="navbar">
+  <a href="index.html" class="brand-logo-link">
+    <img src="asta_mart_logo_transparent.png" alt="Asta Mart" class="nav-brand-img">
+  </a>
+  
+  <div class="nav-links" style="gap: 15px; align-items: center;">
+    <a href="browse.html" class="nav-premium-btn"><span class="nav-premium-inner">Browse Accounts</span></a>
+    <a href="get-edit.html" class="nav-premium-btn"><span class="nav-premium-inner">Get Inv Edit</span></a>
+    <a href="vault-dashboard.html" class="nav-premium-btn"><span class="nav-premium-inner" style="color: var(--accent-cyan);">Asta Vault</span></a>
+  </div>
+  
+  <div class="nav-actions" style="display: flex; align-items: center; gap: 20px;">
+    
+    <a href="saved.html" class="nav-cart-icon" title="Saved Accounts">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle>
+        <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+      </svg>
+      <span id="navCartBadge" class="cart-badge" style="display:none;">0</span>
+    </a>
+
+    <div id="guestActions" style="display: flex; gap: 15px;">
+      <button class="auth-btn-wrapper auth-btn-login" onclick="openAuth('login')">
+        <div class="auth-btn-inner">
+          <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
+          Login
+        </div>
+      </button>
+      <button class="auth-btn-wrapper auth-btn-signup" onclick="openAuth('signup')">
+        <div class="auth-btn-inner">
+          <svg viewBox="0 0 24 24"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+          Sign Up
+        </div>
+      </button>
+    </div>
+    
+    <div id="userActions" class="hidden">
+      <div class="avatar" onclick="toggleUserMenu()"><span id="avatarInitial">U</span>
+        
+        <div class="user-menu hidden" id="userMenu">
+          <div class="menu-row">
+            <button class="profile-hub-btn" onclick="window.location.href='profile.html'">
+              <div class="sign">
+                <svg viewBox="0 0 24 24">
+                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"></path>
+                </svg>
+              </div>
+              <div class="text">Profile Hub</div>
+            </button>
+          </div>
+          
+          <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin: 10px 0;">
+          
+          <div class="menu-row">
+            <button class="Btn" onclick="logout()" style="margin: 0;">
+              <div class="sign">
+                <svg viewBox="0 0 512 512">
+                  <path d="M377.9 105.9L500.7 228.7c7.2 7.2 11.3 17.1 11.3 27.3s-4.1 20.1-11.3 27.3L377.9 406.1c-6.4 6.4-15 9.9-24 9.9c-18.7 0-33.9-15.2-33.9-33.9l0-62.1-128 0c-17.7 0-32-14.3-32-32l0-64c0-17.7 14.3-32 32-32l128 0 0-62.1c0-18.7 15.2-33.9 33.9-33.9c9 0 17.6 3.6 24 9.9zM160 96L96 96c-17.7 0-32 14.3-32 32l0 256c0 17.7 14.3 32 32 32l64 0c17.7 0 32 14.3 32 32s-14.3 32-32 32l-64 0c-53 0-96-43-96-96L0 128C0 75 43 32 96 32l64 0c17.7 0 32 14.3 32 32s-14.3 32-32 32z"></path>
+                </svg>
+              </div>
+              <div class="text">Logout</div>
+            </button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+</nav>
+
+<div id="authModal" class="modal-overlay hidden"><div class="modal-box"><button class="modal-close" onclick="closeAuth()">✕</button><div class="auth-tabs"><button class="auth-tab active" onclick="switchTab('login')">Login</button><button class="auth-tab" onclick="switchTab('signup')">Sign Up</button></div><div id="loginForm" class="auth-form"><h2>Welcome Back</h2><input type="email" placeholder="you@example.com" class="auth-input" id="loginEmail"><button class="btn-primary full" onclick="sendOTP('login')">Send Code</button><div id="loginOTPSection" class="otp-section hidden"><input type="text" placeholder="Enter 6-digit code" class="auth-input" id="loginOTP" maxlength="6"><button class="btn-primary full" onclick="verifyOTP('login')">Verify & Login</button></div></div><div id="signupForm" class="auth-form hidden"><h2>Create Account</h2><input type="text" placeholder="Full Name" class="auth-input" id="signupName"><input type="email" placeholder="you@example.com" class="auth-input" id="signupEmail"><button class="btn-primary full" onclick="sendOTP('signup')">Send Code</button><div id="signupOTPSection" class="otp-section hidden"><input type="text" placeholder="Enter 6-digit code" class="auth-input" id="signupOTP" maxlength="6"><button class="btn-primary full" onclick="verifyOTP('signup')">Verify & Create Account</button></div></div></div></div>
+
+<div class="create-listing-container" style="padding-top: 100px;">
+  <div id="requireLoginMsg" class="login-required-box hidden">
+    <div class="login-icon">🔐</div>
+    <h2>Login Required</h2>
+    <p>You need to be logged in to order a custom edit.</p>
+    <button class="btn-primary" onclick="openAuth('signup')">Sign Up / Login</button>
+  </div>
+
+  <div id="listingForm" class="listing-form hidden">
+    <div class="form-progress">
+      <div class="progress-step active" id="ps1">1. Sync Inventory</div>
+      <div class="progress-sep">→</div>
+      <div class="progress-step" id="ps2">2. Processing</div>
+      <div class="progress-sep">→</div>
+      <div class="progress-step" id="ps3">3. Payment</div>
+    </div>
+
+    <!-- STEP 1: SYNC -->
+    <div class="form-step" id="step1">
+      <h2 class="step-title">Get a Custom 2D Montage</h2>
+      <p class="form-note" style="margin-bottom: 20px;">We'll sync your account data to generate a custom edit of your exact inventory. Delivery within 1-2 days via WhatsApp/Discord.</p>
+      
+      <div class="instruction-box">
+        <div class="instruction-step">
+          <div class="instruction-num">1</div>
+          <div class="instruction-text">
+            <strong>Clear Previous Sessions (Recommended)</strong><br>
+            Click below to log out of any alt accounts currently active in your browser so you don't sync the wrong one. You can close the tab after it loads.
+            <div style="margin-top: 10px;">
+              <a href="https://auth.riotgames.com/logout" target="_blank" class="btn-ghost" style="border-color: rgba(255,255,255,0.2); color: var(--white-dim); font-size: 13px; padding: 6px 12px;">
+                <span style="margin-right: 6px;">🧹</span> Log Out of Riot
+              </a>
+            </div>
+          </div>
+        </div>
+        <div class="instruction-step">
+          <div class="instruction-num">2</div>
+          <div class="instruction-text">
+            <strong>Log into Riot Games</strong><br>
+            Click the button below to open the official Riot login page. Log in normally.
+            <div style="margin-top: 10px;">
+              <a href="https://auth.riotgames.com/authorize?redirect_uri=https%3A%2F%2Fplayvalorant.com%2Fopt_in&client_id=play-valorant-web-prod&response_type=token%20id_token&nonce=1" target="_blank" class="btn-ghost" style="border-color: #ff4655; color: #ff4655;">
+                <span style="margin-right: 8px;">🔴</span> Open Official Riot Login
+              </a>
+            </div>
+          </div>
+        </div>
+        <div class="instruction-step">
+          <div class="instruction-num" style="background:var(--accent-green)">3</div>
+          <div class="instruction-text">
+            <strong>Copy the URL</strong><br>
+            After logging in, copy the entire URL from the blank page and paste it below.
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-top: 20px;">
+        <input type="text" class="auth-input" id="riot-url" placeholder="https://playvalorant.com/opt_in#access_token=eyJhbGciOiJSUzI1NiI..." style="font-family: monospace; font-size: 12px; padding: 15px;">
+      </div>
+      
+      <button class="btn-primary full" style="margin-top: 10px;" id="syncBtn" onclick="processRiotURL()">Extract Skins & Calculate Price</button>
+    </div>
+
+    <!-- STEP 2: TERMINAL -->
+    <div class="form-step hidden" id="step2">
+      <h2 class="step-title">Calculating Price...</h2>
+      
+      <div class="sync-loader-card">
+        <div class="loader">
+          <p>Syncing</p>
+          <div class="words">
+            <span class="word">Premium Skins</span>
+            <span class="word">Match History</span>
+            <span class="word">Agent Roster</span>
+            <span class="word">VP Balance</span>
+            <span class="word">Premium Skins</span>
+          </div>
+        </div>
+      </div>
+      
+      <div id="apiTerminal" class="api-terminal" style="display: none;">
+        <div class="api-log">> Validating Access Token... OK</div>
+      </div>
+    </div>
+
+    <!-- STEP 3: PAYMENT -->
+    <div class="form-step hidden" id="step3">
+      <h2 class="step-title">Order Summary & Payment</h2>
+      
+      <div class="upi-box">
+        <h3 style="color: var(--white-dim); text-transform: uppercase; font-family: var(--font-mono); font-size: 14px;">Total Premium Skins Found: <span id="checkout-skin-count" style="color: #fff;">0</span></h3>
+        <p style="font-size: 12px; color: var(--white-dim); margin-bottom: 20px;">Pricing: ₹3 per skin (<=10 skins) | ₹2 per skin (>10 skins)</p>
+        
+        <div class="upi-amount" id="checkout-price">₹--</div>
+        
+        <div style="margin: 30px 0; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 30px;">
+          <p style="color: var(--white-dim); font-size: 14px;">Scan or enter this UPI ID in your payment app to complete your order:</p>
+          <div class="upi-id">navay@fam</div>
+        </div>
+
+        <div class="form-group" style="text-align: left; margin-top: 20px;">
+          <label>Enter 12-Digit UPI Transaction ID / UTR *</label>
+          <input type="text" class="auth-input" id="utr-number" placeholder="e.g. 312345678901">
+          <p style="font-size: 11px; color: var(--accent-cyan); margin-top: 6px;">We need this to verify your payment. Orders without a valid UTR will be ignored.</p>
+        </div>
+      </div>
+
+      <div class="btn-row" style="margin-top: 40px;">
+        <button class="btn-ghost" onclick="window.location.reload()">Cancel</button>
+        <button class="btn-primary large" onclick="submitOrder()">✅ Verify Payment & Order</button>
+      </div>
+    </div>
+
+    <!-- SUCCESS -->
+    <div class="form-step hidden" id="stepSuccess">
+      <div class="success-box" style="text-align: center; padding: 40px; background: rgba(255,255,255,0.05); border-radius: 8px;">
+        <div class="success-icon" style="font-size: 64px; margin-bottom: 20px;">✅</div>
+        <h2>Payment Submitted!</h2>
+        <p style="color: var(--white-dim); margin-bottom: 30px;">Our team will verify your transaction shortly. You will receive your custom inventory edit via WhatsApp/Discord within 1-2 days.</p>
+        <a href="index.html" class="btn-ghost">Return to Home</a>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
+<script src="effects.js"></script>
+
+<script>
+let parsedRiotData = {};
+let finalPrice = 0;
+
+document.addEventListener('DOMContentLoaded', () => {
+  const user = JSON.parse(localStorage.getItem('am_user') || 'null');
+  if (!user) {
+    document.getElementById('requireLoginMsg').classList.remove('hidden');
+  } else {
+    document.getElementById('listingForm').classList.remove('hidden');
+  }
+});
+
+function nextStep(current, next) {
+  document.getElementById('step' + current).classList.add('hidden');
+  document.getElementById('step' + next).classList.remove('hidden');
+  document.querySelectorAll('.progress-step').forEach((s,i) => { s.classList.toggle('active', i < next); });
+}
+
+async function processRiotURL() {
+  const pastedUrl = document.getElementById('riot-url').value.trim();
+  if(!pastedUrl) return alert('Please paste the URL.');
+  
+  nextStep(1, 2);
+  const term = document.getElementById('apiTerminal');
+
+  try {
+    const res = await fetch('http://localhost:5000/api/riot/sync-url', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ redirectUrl: pastedUrl })
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+
+    parsedRiotData = data; 
+    setTimeout(() => { term.innerHTML += '<div class="api-log">> Scraping inventory... OK</div>'; }, 500);
+
+    setTimeout(() => {
+      const premCount = data.premiumSkins.length;
+      finalPrice = premCount === 0 ? 49 : (premCount > 10 ? premCount * 2 : premCount * 3);
+      
+      document.getElementById('checkout-skin-count').textContent = premCount;
+      document.getElementById('checkout-price').textContent = '₹' + finalPrice;
+
+      nextStep(2, 3);
+    }, 1500); 
+
+  } catch (error) {
+    alert(error.message);
+    nextStep(2, 1); 
+  }
+}
+
+async function submitOrder() {
+  const utr = document.getElementById('utr-number').value.trim();
+  if (!utr || utr.length < 6) return alert('Please enter a valid UPI Transaction ID.');
+
+  const user = JSON.parse(localStorage.getItem('am_user'));
+  const profile = JSON.parse(localStorage.getItem('am_seller_profile') || '{}');
+
+  try {
+    await fetch('http://localhost:5000/api/orders/inventory-edit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sellerName: user.name,
+        sellerPhone: profile.whatsapp,
+        sellerDiscord: profile.discord,
+        title: "Standalone Edit Order",
+        skins: parsedRiotData.premiumSkins.map(s => s.name),
+        price: finalPrice,
+        transactionId: utr
+      })
+    });
+
+    document.getElementById('step3').classList.add('hidden');
+    document.getElementById('stepSuccess').classList.remove('hidden');
+  } catch (err) {
+    alert('Error submitting order. Ensure backend is running.');
+  }
+}
+</script>
+</body>
+</html>

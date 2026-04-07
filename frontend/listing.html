@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Account Details — Asta Mart</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+  /* TABBED INVENTORY UI STYLES */
+  .inventory-section { margin-top: 30px; background: rgba(255,255,255,0.02); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden; }
+  .inventory-tabs { display: flex; border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(0,0,0,0.2); }
+  .inv-tab { flex: 1; padding: 15px; background: transparent; border: none; color: var(--white-dim); font-family: var(--font-ui, 'Rajdhani', sans-serif); font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.3s; letter-spacing: 1px; }
+  .inv-tab:hover { background: rgba(255,255,255,0.05); color: #fff; }
+  .inv-tab.active { background: rgba(0, 255, 240, 0.05); color: var(--accent-cyan); border-bottom: 2px solid var(--accent-cyan); }
+  .inv-content { padding: 20px; display: none; }
+  .inv-content.active { display: block; animation: fadeIn 0.3s ease; }
+  
+  /* EXPLORANT SKIN GRID STYLES */
+  .skin-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 15px; }
+  .skin-card { background: rgba(15, 10, 30, 0.4); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 20px 15px; display: flex; flex-direction: column; align-items: center; text-align: center; transition: transform 0.2s, box-shadow 0.2s; }
+  .skin-card:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.4); }
+  .skin-card img { height: 60px; object-fit: contain; margin-bottom: 15px; filter: drop-shadow(0px 4px 6px rgba(0,0,0,0.4)); }
+  .skin-card .skin-icon-placeholder { font-size: 40px; margin-bottom: 15px; filter: drop-shadow(0px 4px 6px rgba(0,0,0,0.4)); }
+  .skin-card .skin-name { color: #fff; font-size: 14px; font-weight: 600; font-family: 'Barlow', sans-serif; }
+  
+  /* Dynamic Tier Borders */
+  .tier-premium { border-top: 3px solid #d1548d; }   /* Pink */
+  .tier-exclusive { border-top: 3px solid #f59e5b; } /* Orange */
+  .tier-ultra { border-top: 3px solid #f5d463; }     /* Yellow */
+  .tier-battlepass { border-top: 3px solid #8e92a4; } /* Gray for BPs/Agents */
+  
+  /* 3x2 STAT GRID */
+  .detail-stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 30px; }
+  .detail-stat { background: rgba(15, 10, 30, 0.6); border: 1px solid rgba(255, 255, 255, 0.05); padding: 18px 10px; text-align: center; border-radius: 6px; }
+  .detail-stat-val { font-family: var(--font-display); font-size: 32px; font-weight: 900; color: var(--red); line-height: 1; }
+  .detail-stat-label { font-family: var(--font-mono); font-size: 10px; color: var(--white-dim); text-transform: uppercase; letter-spacing: 1.5px; margin-top: 6px; }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+</head>
+<body>
+
+<div id="compareTray" class="compare-tray hidden">
+  <div class="tray-inner">
+    <span class="tray-label">Compare</span>
+    <div id="compareItems" class="compare-items"></div>
+    <button class="btn-primary sm" onclick="goCompare()">Compare Now</button>
+    <button class="tray-clear" onclick="clearCompare()">✕ Clear</button>
+  </div>
+</div>
+
+<nav class="navbar">
+  <a href="index.html" class="brand-logo-link">
+    <img src="asta_mart_logo_transparent.png" alt="Asta Mart" class="nav-brand-img">
+  </a>
+  
+  <div class="nav-links" style="gap: 15px; align-items: center;">
+    <a href="browse.html" class="nav-premium-btn"><span class="nav-premium-inner">Browse Accounts</span></a>
+    <a href="get-edit.html" class="nav-premium-btn"><span class="nav-premium-inner">Get Inv Edit</span></a>
+    <a href="vault-dashboard.html" class="nav-premium-btn"><span class="nav-premium-inner" style="color: var(--accent-cyan);">Asta Vault</span></a>
+  </div>
+  
+  <div class="nav-actions" style="display: flex; align-items: center; gap: 20px;">
+    
+    <a href="saved.html" class="nav-cart-icon" title="Saved Accounts">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle>
+        <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+      </svg>
+      <span id="navCartBadge" class="cart-badge" style="display:none;">0</span>
+    </a>
+
+    <div id="guestActions" style="display: flex; gap: 15px;">
+      <button class="auth-btn-wrapper auth-btn-login" onclick="openAuth('login')">
+        <div class="auth-btn-inner">
+          <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
+          Login
+        </div>
+      </button>
+      <button class="auth-btn-wrapper auth-btn-signup" onclick="openAuth('signup')">
+        <div class="auth-btn-inner">
+          <svg viewBox="0 0 24 24"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+          Sign Up
+        </div>
+      </button>
+    </div>
+    
+    <div id="userActions" class="hidden">
+      <div class="avatar" onclick="toggleUserMenu()"><span id="avatarInitial">U</span>
+        
+        <div class="user-menu hidden" id="userMenu">
+          <div class="menu-row">
+            <button class="profile-hub-btn" onclick="window.location.href='profile.html'">
+              <div class="sign">
+                <svg viewBox="0 0 24 24">
+                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"></path>
+                </svg>
+              </div>
+              <div class="text">Profile Hub</div>
+            </button>
+          </div>
+          
+          <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin: 10px 0;">
+          
+          <div class="menu-row">
+            <button class="Btn" onclick="logout()" style="margin: 0;">
+              <div class="sign">
+                <svg viewBox="0 0 512 512">
+                  <path d="M377.9 105.9L500.7 228.7c7.2 7.2 11.3 17.1 11.3 27.3s-4.1 20.1-11.3 27.3L377.9 406.1c-6.4 6.4-15 9.9-24 9.9c-18.7 0-33.9-15.2-33.9-33.9l0-62.1-128 0c-17.7 0-32-14.3-32-32l0-64c0-17.7 14.3-32 32-32l128 0 0-62.1c0-18.7 15.2-33.9 33.9-33.9c9 0 17.6 3.6 24 9.9zM160 96L96 96c-17.7 0-32 14.3-32 32l0 256c0 17.7 14.3 32 32 32l64 0c17.7 0 32 14.3 32 32s-14.3 32-32 32l-64 0c-53 0-96-43-96-96L0 128C0 75 43 32 96 32l64 0c17.7 0 32 14.3 32 32s-14.3 32-32 32z"></path>
+                </svg>
+              </div>
+              <div class="text">Logout</div>
+            </button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+</nav>
+
+<div id="authModal" class="modal-overlay hidden">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeAuth()">✕</button>
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="switchTab('login')">Login</button>
+      <button class="auth-tab" onclick="switchTab('signup')">Sign Up</button>
+    </div>
+    <div id="loginForm" class="auth-form">
+      <h2>Welcome Back</h2>
+      <p class="auth-sub">Enter your email address to continue</p>
+      <input type="email" placeholder="you@example.com" class="auth-input" id="loginEmail">
+      <button class="btn-primary full" onclick="sendOTP('login')">Send Code</button>
+      <div id="loginOTPSection" class="otp-section hidden">
+        <input type="text" placeholder="Enter 6-digit code" class="auth-input" id="loginOTP" maxlength="6">
+        <button class="btn-primary full" onclick="verifyOTP('login')">Verify & Login</button>
+      </div>
+    </div>
+    <div id="signupForm" class="auth-form hidden">
+      <h2>Create Account</h2>
+      <p class="auth-sub">Join Asta Mart</p>
+      <input type="text" placeholder="Full Name" class="auth-input" id="signupName">
+      <input type="email" placeholder="you@example.com" class="auth-input" id="signupEmail">
+      <button class="btn-primary full" onclick="sendOTP('signup')">Send Code</button>
+      <div id="signupOTPSection" class="otp-section hidden">
+        <input type="text" placeholder="Enter 6-digit code" class="auth-input" id="signupOTP" maxlength="6">
+        <button class="btn-primary full" onclick="verifyOTP('signup')">Verify & Create Account</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="container" style="padding-top: 100px;">
+  <div id="listingDetail" class="listing-detail-wrapper" style="display: grid; grid-template-columns: 2fr 1fr; gap: 40px;">
+    <!-- Rendered via JS -->
+  </div>
+</div>
+
+<section class="similar-section" style="margin-top: 60px; padding-bottom: 60px;">
+  <div class="container">
+    <h2 class="section-title">Similar Accounts</h2>
+    <div class="listings-grid" id="similarGrid"></div>
+  </div>
+</section>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
+<script src="effects.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', async () => {
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('id'); 
+    
+    if (id) {
+      if (typeof GLOBAL_LISTINGS === 'undefined' || GLOBAL_LISTINGS.length === 0) {
+        await fetchAllListingsFromDB();
+      }
+      renderListingDetail(id);
+    } else {
+      document.getElementById('listingDetail').innerHTML = '<div style="grid-column: 1/-1; padding: 100px; text-align: center;"><h2>Invalid Account ID</h2><br><a href="browse.html" class="btn-primary">Browse Accounts</a></div>';
+    }
+  });
+</script>
+</body>
+</html>

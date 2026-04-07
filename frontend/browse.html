@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Browse Accounts — Asta Mart</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+  body { background-color: var(--bg-dark); color: #fff; }
+  
+  .browse-layout { display: flex; max-width: 1400px; margin: 100px auto 40px; gap: 30px; padding: 0 20px; align-items: flex-start; }
+  
+  /* --- NEW SLEEK SIDEBAR CSS --- */
+  .modern-sidebar { width: 280px; flex-shrink: 0; background: rgba(15, 10, 30, 0.4); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 20px; position: sticky; top: 100px; }
+  
+  .sidebar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; }
+  .sidebar-title { font-family: var(--font-display); font-size: 24px; font-weight: 800; letter-spacing: 1px; margin: 0; }
+  .clear-btn { background: none; border: none; color: var(--red); font-family: var(--font-mono); font-size: 12px; cursor: pointer; text-transform: uppercase; transition: 0.2s; }
+  .clear-btn:hover { color: #fff; text-shadow: 0 0 8px var(--red); }
+
+  /* Collapsible Filter Groups */
+  .filter-group { margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+  .filter-summary { font-family: var(--font-ui); font-size: 13px; font-weight: bold; color: var(--accent-cyan); text-transform: uppercase; letter-spacing: 1px; padding: 15px 0; cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; }
+  .filter-summary::-webkit-details-marker { display: none; }
+  .filter-summary::after { content: '+'; font-size: 18px; color: var(--white-dim); font-weight: 300; transition: transform 0.3s; }
+  details[open] .filter-summary::after { content: '−'; }
+  .filter-content { padding-bottom: 15px; }
+
+  /* Minimal Inputs */
+  .minimal-input { width: 100%; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); color: #fff; padding: 10px 12px; border-radius: 6px; font-family: var(--font-ui); font-size: 14px; transition: 0.2s; outline: none; margin-bottom: 10px; }
+  .minimal-input:focus { border-color: var(--accent-cyan); background: rgba(0,0,0,0.6); }
+  .input-row { display: flex; gap: 10px; align-items: center; }
+  .input-row span { color: var(--white-dim); }
+
+  /* Chip Selectors (Replaces Checkboxes) */
+  .chip-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+  .filter-chip { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); padding: 6px 12px; border-radius: 20px; font-size: 12px; color: var(--white-dim); cursor: pointer; transition: all 0.2s; user-select: none; }
+  .filter-chip:hover { border-color: var(--accent-cyan); color: #fff; }
+  .filter-chip.active { background: rgba(63, 233, 255, 0.15); border-color: var(--accent-cyan); color: #fff; font-weight: bold; }
+  
+  /* --- MAIN CONTENT AREA --- */
+  .main-content { flex: 1; min-width: 0; }
+  .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+  .result-count { color: var(--white-dim); font-family: var(--font-mono); font-size: 14px; }
+  .sort-select { background: transparent; border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 8px 15px; border-radius: 6px; font-family: var(--font-ui); cursor: pointer; outline: none; }
+  .sort-select:focus { border-color: var(--accent-cyan); }
+  .sort-select option { background: var(--bg-dark); }
+
+  .listings-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+  
+  /* Empty State / Loading State */
+  .status-message { grid-column: 1 / -1; text-align: center; padding: 60px 20px; color: var(--white-dim); font-family: var(--font-mono); font-size: 16px; border: 1px dashed rgba(255,255,255,0.1); border-radius: 8px; }
+  
+  /* ACCOUNT CARD STYLES */
+  .account-card { background: linear-gradient(180deg, #13131c 0%, #0a0a0f 100%); border: 1px solid #2a2a35; border-radius: 12px; overflow: hidden; transition: all 0.3s ease; position: relative; display: flex; flex-direction: column; text-decoration: none; color: inherit; cursor: pointer; }
+  .account-card:hover { transform: translateY(-4px); border-color: var(--accent-cyan); box-shadow: 0 10px 30px rgba(0,0,0,0.5), 0 0 15px rgba(63, 233, 255, 0.1); }
+  .card-image-wrapper { width: 100%; height: 160px; background: #000; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid #2a2a35; }
+  .card-image-wrapper img { width: 100%; height: 100%; object-fit: cover; opacity: 0.8; transition: opacity 0.3s; }
+  .account-card:hover .card-image-wrapper img { opacity: 1; }
+  .placeholder-icon { font-size: 40px; opacity: 0.5; }
+  
+  .card-rank-badge { position: absolute; bottom: -15px; left: 15px; background: #13131c; border: 1px solid #2a2a35; padding: 4px 12px; border-radius: 20px; display: flex; align-items: center; gap: 8px; font-family: var(--font-ui); font-size: 13px; font-weight: bold; z-index: 2; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+  .card-rank-badge img { width: 20px; height: 20px; }
+
+  .card-content { padding: 25px 15px 15px; flex: 1; display: flex; flex-direction: column; }
+  .card-title { font-family: var(--font-display); font-size: 18px; font-weight: 700; color: #fff; margin: 0 0 12px 0; line-height: 1.3; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  
+  .card-stats { display: flex; gap: 15px; margin-bottom: 15px; font-family: var(--font-mono); font-size: 12px; color: var(--white-dim); }
+  .stat-item { display: flex; align-items: center; gap: 5px; }
+  .stat-item span { color: #fff; font-weight: bold; }
+
+  .card-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 15px; }
+  .card-tag { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: var(--accent-cyan); font-size: 10px; padding: 3px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px; font-family: var(--font-mono); }
+
+  .card-footer { margin-top: auto; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 15px; }
+  .card-price { font-family: var(--font-display); font-size: 24px; font-weight: 900; color: var(--red); }
+  .card-view-btn { background: rgba(255,255,255,0.1); color: #fff; border: none; padding: 6px 12px; border-radius: 4px; font-family: var(--font-ui); font-size: 12px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+  .account-card:hover .card-view-btn { background: var(--accent-cyan); color: #000; }
+
+</style>
+</head>
+<body>
+
+<nav class="navbar">
+  <a href="index.html" class="brand-logo-link">
+    <img src="asta_mart_logo_transparent.png" alt="Asta Mart" class="nav-brand-img">
+  </a>
+  
+  <div class="nav-links" style="gap: 15px; align-items: center;">
+    <a href="browse.html" class="nav-premium-btn"><span class="nav-premium-inner">Browse Accounts</span></a>
+    <a href="get-edit.html" class="nav-premium-btn"><span class="nav-premium-inner">Get Inv Edit</span></a>
+    <a href="vault-dashboard.html" class="nav-premium-btn"><span class="nav-premium-inner" style="color: var(--accent-cyan);">Asta Vault</span></a>
+  </div>
+  
+  <div class="nav-actions" style="display: flex; align-items: center; gap: 20px;">
+    
+    <a href="saved.html" class="nav-cart-icon" title="Saved Accounts">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle>
+        <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+      </svg>
+      <span id="navCartBadge" class="cart-badge" style="display:none;">0</span>
+    </a>
+
+    <div id="guestActions" style="display: flex; gap: 15px;">
+      <button class="auth-btn-wrapper auth-btn-login" onclick="openAuth('login')">
+        <div class="auth-btn-inner">
+          <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
+          Login
+        </div>
+      </button>
+      <button class="auth-btn-wrapper auth-btn-signup" onclick="openAuth('signup')">
+        <div class="auth-btn-inner">
+          <svg viewBox="0 0 24 24"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+          Sign Up
+        </div>
+      </button>
+    </div>
+    
+    <div id="userActions" class="hidden">
+      <div class="avatar" onclick="toggleUserMenu()"><span id="avatarInitial">U</span>
+        
+        <div class="user-menu hidden" id="userMenu">
+          <div class="menu-row">
+            <button class="profile-hub-btn" onclick="window.location.href='profile.html'">
+              <div class="sign">
+                <svg viewBox="0 0 24 24">
+                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"></path>
+                </svg>
+              </div>
+              <div class="text">Profile Hub</div>
+            </button>
+          </div>
+          
+          <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin: 10px 0;">
+          
+          <div class="menu-row">
+            <button class="Btn" onclick="logout()" style="margin: 0;">
+              <div class="sign">
+                <svg viewBox="0 0 512 512">
+                  <path d="M377.9 105.9L500.7 228.7c7.2 7.2 11.3 17.1 11.3 27.3s-4.1 20.1-11.3 27.3L377.9 406.1c-6.4 6.4-15 9.9-24 9.9c-18.7 0-33.9-15.2-33.9-33.9l0-62.1-128 0c-17.7 0-32-14.3-32-32l0-64c0-17.7 14.3-32 32-32l128 0 0-62.1c0-18.7 15.2-33.9 33.9-33.9c9 0 17.6 3.6 24 9.9zM160 96L96 96c-17.7 0-32 14.3-32 32l0 256c0 17.7 14.3 32 32 32l64 0c17.7 0 32 14.3 32 32s-14.3 32-32 32l-64 0c-53 0-96-43-96-96L0 128C0 75 43 32 96 32l64 0c17.7 0 32 14.3 32 32s-14.3 32-32 32z"></path>
+                </svg>
+              </div>
+              <div class="text">Logout</div>
+            </button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+</nav>
+
+<div id="authModal" class="modal-overlay hidden"><div class="modal-box"><button class="modal-close" onclick="closeAuth()">✕</button><div class="auth-tabs"><button class="auth-tab active" onclick="switchTab('login')">Login</button><button class="auth-tab" onclick="switchTab('signup')">Sign Up</button></div><div id="loginForm" class="auth-form"><h2>Welcome Back</h2><p class="auth-sub">Enter your email address to continue</p><input type="email" placeholder="you@example.com" class="auth-input" id="loginEmail"><button class="btn-primary full" onclick="sendOTP('login')">Send Code</button><div id="loginOTPSection" class="otp-section hidden"><input type="text" placeholder="Enter 6-digit code" class="auth-input" id="loginOTP" maxlength="6"><button class="btn-primary full" onclick="verifyOTP('login')">Verify & Login</button></div></div><div id="signupForm" class="auth-form hidden"><h2>Create Account</h2><p class="auth-sub">Join Asta Mart</p><input type="text" placeholder="Full Name" class="auth-input" id="signupName"><input type="email" placeholder="you@example.com" class="auth-input" id="signupEmail"><button class="btn-primary full" onclick="sendOTP('signup')">Send Code</button><div id="signupOTPSection" class="otp-section hidden"><input type="text" placeholder="Enter 6-digit code" class="auth-input" id="signupOTP" maxlength="6"><button class="btn-primary full" onclick="verifyOTP('signup')">Verify & Create Account</button></div></div></div></div>
+
+<div class="browse-layout">
+  <aside class="modern-sidebar">
+    <div class="sidebar-header">
+      <h2 class="sidebar-title">FILTERS</h2>
+      <button class="clear-btn" onclick="clearFilters()">Clear All</button>
+    </div>
+
+    <details class="filter-group" open>
+      <summary class="filter-summary">🔍 Skin / Keyword</summary>
+      <div class="filter-content">
+        <input type="text" class="minimal-input" id="f-search" placeholder="e.g. Kuronami Vandal" onkeyup="applyFilters()">
+      </div>
+    </details>
+
+    <details class="filter-group" open>
+      <summary class="filter-summary">💰 Price Range (₹)</summary>
+      <div class="filter-content">
+        <div class="input-row">
+          <input type="number" class="minimal-input" id="f-min-price" placeholder="Min" onkeyup="applyFilters()">
+          <span>-</span>
+          <input type="number" class="minimal-input" id="f-max-price" placeholder="Max" onkeyup="applyFilters()">
+        </div>
+      </div>
+    </details>
+
+    <details class="filter-group">
+      <summary class="filter-summary">🏆 Rank Tier</summary>
+      <div class="filter-content">
+        <div class="chip-grid" id="rank-chips">
+          <div class="filter-chip" onclick="toggleChip(this, 'rank', 'Iron')">Iron</div>
+          <div class="filter-chip" onclick="toggleChip(this, 'rank', 'Bronze')">Bronze</div>
+          <div class="filter-chip" onclick="toggleChip(this, 'rank', 'Silver')">Silver</div>
+          <div class="filter-chip" onclick="toggleChip(this, 'rank', 'Gold')">Gold</div>
+          <div class="filter-chip" onclick="toggleChip(this, 'rank', 'Platinum')">Platinum</div>
+          <div class="filter-chip" onclick="toggleChip(this, 'rank', 'Diamond')">Diamond</div>
+          <div class="filter-chip" onclick="toggleChip(this, 'rank', 'Ascendant')">Ascendant</div>
+          <div class="filter-chip" onclick="toggleChip(this, 'rank', 'Immortal')">Immortal</div>
+          <div class="filter-chip" onclick="toggleChip(this, 'rank', 'Radiant')">Radiant</div>
+        </div>
+      </div>
+    </details>
+
+    <details class="filter-group">
+      <summary class="filter-summary">🌍 Region</summary>
+      <div class="filter-content">
+        <div class="chip-grid" id="region-chips">
+          <div class="filter-chip active" onclick="toggleChip(this, 'region', 'AP')">AP (Asia)</div>
+          <div class="filter-chip" onclick="toggleChip(this, 'region', 'NA')">NA (America)</div>
+          <div class="filter-chip" onclick="toggleChip(this, 'region', 'EU')">EU (Europe)</div>
+        </div>
+      </div>
+    </details>
+
+  </aside>
+
+  <main class="main-content">
+    <div class="top-bar">
+      <div class="result-count">Showing <span id="disp-count" style="color: #fff; font-weight: bold;">0</span> accounts</div>
+      <select class="sort-select" id="f-sort" onchange="applyFilters()">
+        <option value="newest">Sort by: Newest First</option>
+        <option value="price-low">Price: Low to High</option>
+        <option value="price-high">Price: High to Low</option>
+        <option value="skins-high">Premium Skins: Highest</option>
+      </select>
+    </div>
+
+    <div class="listings-grid" id="listingsContainer">
+      <div class="status-message">Loading database...</div>
+    </div>
+  </main>
+</div>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
+
+<script>
+// --- INTERNAL BROWSE LOGIC ---
+let allListings = [];
+let activeFilters = {
+    rank: [],
+    region: ['AP'] // Default to AP
+};
+
+document.addEventListener('DOMContentLoaded', fetchListings);
+
+async function fetchListings() {
+    const container = document.getElementById('listingsContainer');
+    try {
+        const res = await fetch('http://localhost:5000/api/listings');
+        if (!res.ok) throw new Error('Network response was not ok');
+        
+        allListings = await res.json();
+        applyFilters(); 
+    } catch (error) {
+        console.error("Error fetching listings:", error);
+        container.innerHTML = `<div class="status-message" style="color: var(--red);">Error connecting to server. Is backend running?</div>`;
+    }
+}
+
+function toggleChip(element, category, value) {
+    element.classList.toggle('active');
+    
+    if (element.classList.contains('active')) {
+        activeFilters[category].push(value);
+    } else {
+        activeFilters[category] = activeFilters[category].filter(v => v !== value);
+    }
+    applyFilters();
+}
+
+function clearFilters() {
+    document.getElementById('f-search').value = '';
+    document.getElementById('f-min-price').value = '';
+    document.getElementById('f-max-price').value = '';
+    document.getElementById('f-sort').value = 'newest';
+    
+    document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+    activeFilters = { rank: [], region: [] };
+    
+    applyFilters();
+}
+
+function applyFilters() {
+    const searchTerm = document.getElementById('f-search').value.toLowerCase();
+    const minPrice = parseInt(document.getElementById('f-min-price').value) || 0;
+    const maxPrice = parseInt(document.getElementById('f-max-price').value) || 9999999;
+    const sortMode = document.getElementById('f-sort').value;
+
+    let filtered = allListings.filter(l => {
+        // 🟢 PREVENT PENDING/SOLD ACCOUNTS FROM SHOWING TO THE PUBLIC
+        if (l.status !== 'active') return false;
+
+        const titleMatch = (l.title || "").toLowerCase().includes(searchTerm);
+        const tagMatch = (l.tags || []).join(' ').toLowerCase().includes(searchTerm);
+        const aiMatch = (l.aiSummary || "").toLowerCase().includes(searchTerm);
+        
+        const matchesSearch = titleMatch || tagMatch || aiMatch;
+        const matchesPrice = l.price >= minPrice && l.price <= maxPrice;
+        
+        const rankValue = (l.rank || "Unranked").split(' ')[0]; 
+        const matchesRank = activeFilters.rank.length === 0 || activeFilters.rank.includes(rankValue);
+        const matchesRegion = activeFilters.region.length === 0 || activeFilters.region.some(r => (l.region || '').includes(r));
+
+        return matchesSearch && matchesPrice && matchesRank && matchesRegion;
+    });
+
+    if (sortMode === 'price-low') filtered.sort((a, b) => a.price - b.price);
+    if (sortMode === 'price-high') filtered.sort((a, b) => b.price - a.price);
+    if (sortMode === 'skins-high') filtered.sort((a, b) => (b.skinCount || 0) - (a.skinCount || 0));
+    if (sortMode === 'newest') filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    document.getElementById('disp-count').textContent = filtered.length;
+    renderCards(filtered);
+}
+
+function renderCards(listings) {
+    const container = document.getElementById('listingsContainer');
+    container.innerHTML = '';
+
+    if (listings.length === 0) {
+        container.innerHTML = `<div class="status-message">No accounts found matching your filters.</div>`;
+        return;
+    }
+
+    listings.forEach(l => {
+        const hasImage = l.images && l.images.length > 0 && l.images[0].length > 10;
+        
+        const imageHTML = hasImage 
+            ? `<img src="${l.images[0]}" alt="Inventory Edit">`
+            : `<div class="placeholder-icon">🎮</div>`;
+
+        const tagsHTML = (l.tags || []).slice(0, 4).map(tag => `<span class="card-tag">${tag}</span>`).join('');
+
+        const card = document.createElement('a');
+        card.href = `listing.html?id=${l._id}`;
+        card.className = 'account-card';
+        
+        card.innerHTML = `
+            <div class="card-image-wrapper">
+                ${imageHTML}
+                <div class="card-rank-badge">
+                    ${l.rank || 'Unranked'}
+                </div>
+            </div>
+            <div class="card-content">
+                <h3 class="card-title">${l.title || 'Valorant Account'}</h3>
+                
+                <div class="card-stats">
+                    <div class="stat-item">🔫 <span>${l.skinCount || 0}</span> Premium</div>
+                    <div class="stat-item">🌍 <span>${l.region || 'AP'}</span></div>
+                    <div class="stat-item">Level <span>${l.level || '?'}</span></div>
+                </div>
+                
+                <div class="card-tags">
+                    ${tagsHTML}
+                </div>
+                
+                <div class="card-footer">
+                    <div class="card-price">₹${(l.price || 0).toLocaleString('en-IN')}</div>
+                    <button class="card-view-btn">View Details</button>
+                </div>
+            </div>
+        `;
+        container.appendChild(card);
+    });
+}
+</script>
+</body>
+</html>
