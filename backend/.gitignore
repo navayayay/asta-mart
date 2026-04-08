@@ -2,3 +2,6 @@ node_modules/
 .env
 .DS_Store
 skin_catalog_cache.json
+test_output.txt
+test_error.txt
+*.log

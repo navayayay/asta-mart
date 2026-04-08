@@ -61,7 +61,7 @@ const SAMPLE_LISTINGS = [
     status: 'active', views: 134, contactReveals: 21, saves: 11, isGem: true
   },
   {
-    id: 1004, sellerId: '+919876543213', sellerName: 'PlatKing99', sellerRep: 4.0,
+    id: 1004, sellerId: 'platkingvendor@sample.com', sellerName: 'PlatKing99', sellerRep: 4.0,
     title: '💎 HIDDEN GEM — Platinum 3 | 52 Skins | AP | Sentinels Bundle',
     price: 4200, region: 'AP',
     rank: 'Platinum 3', peakRank: 'Diamond 1',
@@ -81,7 +81,7 @@ const SAMPLE_LISTINGS = [
     status: 'active', views: 312, contactReveals: 67, saves: 44, isGem: true
   },
   {
-    id: 1005, sellerId: '+919876543214', sellerName: 'EU_Fragger', sellerRep: 4.5,
+    id: 1005, sellerId: 'eufraggervendor@sample.com', sellerName: 'EU_Fragger', sellerRep: 4.5,
     title: 'Ascendant 2 | 35 Skins | EU Server | Forsaken + Protocol',
     price: 7200, region: 'EU',
     rank: 'Ascendant 2', peakRank: 'Immortal 1',
@@ -101,7 +101,7 @@ const SAMPLE_LISTINGS = [
     status: 'active', views: 76, contactReveals: 9, saves: 5, isGem: false
   },
   {
-    id: 1006, sellerId: '+919876543215', sellerName: 'GoldSmith', sellerRep: 3.5,
+    id: 1006, sellerId: 'goldsmithvendor@sample.com', sellerName: 'GoldSmith', sellerRep: 3.5,
     title: 'Gold 3 Starter | 15 Skins | AP | Budget Pick',
     price: 1800, region: 'AP',
     rank: 'Gold 3', peakRank: 'Platinum 1',

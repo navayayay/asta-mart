@@ -2,7 +2,10 @@
 const API_BASE_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.startsWith('192.168.'))
   ? 'http://localhost:5000/api'
   : 'https://api.asta-mart.in/api';
-console.log('🔌 API_BASE_URL:', API_BASE_URL, '| Hostname:', window.location.hostname);
+// Only log API endpoint in development/local environments
+if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.startsWith('192.168.')) {
+  console.log('🔌 API_BASE_URL:', API_BASE_URL, '| Hostname:', window.location.hostname);
+}
 let compareList = JSON.parse(sessionStorage.getItem('am_compare') || '[]');
 let GLOBAL_LISTINGS = [];
 
@@ -222,15 +225,15 @@ async function verifyOTP(type) {
     const res = await fetch(`${API_BASE_URL}/auth/verify-otp`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ email, otp, name, type })
     });
 
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
 
-    // Store both user info and JWT token
+    // Store user info (token is in httpOnly cookie, sent automatically)
     localStorage.setItem('am_user', JSON.stringify(data.user));
-    localStorage.setItem('am_token', data.token);
     
     closeAuth();
     initAuth();
@@ -243,21 +246,42 @@ async function verifyOTP(type) {
   }
 }
 
+// Get authenticated headers (token is in httpOnly cookie, sent automatically by browser)
 function getAuthHeaders() {
-  const token = localStorage.getItem('am_token');
-  const headers = { 'Content-Type': 'application/json' };
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+  return { 'Content-Type': 'application/json' };
+  // No need to manually add Authorization header — httpOnly cookie is sent automatically
+}
+
+// Global fetch wrapper that handles 401 (expired token) responses
+async function authFetch(url, options = {}) {
+  const res = await fetch(url, {
+    ...options,
+    headers: { ...getAuthHeaders(), ...options.headers },
+    credentials: 'include'
+  });
+  
+  // Check if token has expired
+  if (res.status === 401) {
+    console.warn('⚠️ Session expired (401 Unauthorized)');
+    localStorage.removeItem('am_user');
+    openAuth('login');
+    throw new Error('Session expired. Please log in again.');
   }
-  return headers;
+  
+  return res;
 }
 
 function logout() {
   localStorage.removeItem('am_user');
-  localStorage.removeItem('am_token');
-  location.href = 'index.html';
+  // Clear httpOnly cookie via logout endpoint
+  fetch(`${API_BASE_URL}/auth/logout`, { 
+    method: 'POST',
+    credentials: 'include'
+  })
+    .catch(err => console.error('Logout error:', err))
+    .finally(() => location.href = 'index.html');
 }
-
+// httpOnly cookie is cleared by server on logout
 function toggleUserMenu() {
   document.getElementById('userMenu')?.classList.toggle('hidden');
 }
@@ -589,16 +613,11 @@ async function revealContact(id) {
   if (!user) { openAuth('login'); return; }
   
   try {
-    const response = await fetch(`${API_BASE_URL}/listings/${id}/reveal`, {
-      method: 'POST',
-      headers: getAuthHeaders()
+    const response = await authFetch(`${API_BASE_URL}/listings/${id}/reveal`, {
+      method: 'POST'
     });
     
     if (!response.ok) {
-      if (response.status === 401) {
-        openAuth('login');
-        return;
-      }
       const err = await response.json();
       throw new Error(err.error || 'Failed to reveal contact');
     }
@@ -756,9 +775,8 @@ async function deleteListing(id, btnElement) {
   if (!confirm("Are you sure you want to delete this listing? This action cannot be undone.")) return;
 
   try {
-    const res = await fetch(`${API_BASE_URL}/listings/${id}`, {
-      method: 'DELETE',
-      headers: getAuthHeaders()
+    const res = await authFetch(`${API_BASE_URL}/listings/${id}`, {
+      method: 'DELETE'
     });
 
     if (!res.ok) {

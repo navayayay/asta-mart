@@ -16,6 +16,7 @@ const nodemailer = require('nodemailer');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
+const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
 const axios = require('axios');
 const crypto = require('crypto');
@@ -27,6 +28,7 @@ const valorantSync = require('./jobs/valorantSync'); // Start Valorant daily syn
 
 const app = express();
 app.use(express.json({ limit: '1mb' })); // DoS protection: safe default limit for JSON payloads
+app.use(cookieParser()); // Parse incoming cookies
 
 // --- SECURITY HEADERS ---
 app.use(helmet({
@@ -36,21 +38,26 @@ app.use(helmet({
       scriptSrc: ["'self'", "https://cdnjs.cloudflare.com", "https://fonts.googleapis.com", "https://unpkg.com"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       imgSrc: ["'self'", "data:", "https://media.valorant-api.com", "https://valorant-api.com"],
-      connectSrc: ["'self'", "http://localhost:5000"],
+      connectSrc: [
+        "'self'",
+        "https://api.asta-mart.in",
+        ...(process.env.NODE_ENV !== 'production'
+          ? ["http://localhost:5000"]
+          : [])
+      ],
     }
   }
 }));
 
 // --- CORS CONFIGURATION ---
 const corsOrigins = [
-  'http://localhost:5500',
-  'http://localhost:5501',
-  'http://127.0.0.1:5500',
-  'http://127.0.0.1:5501',
-  'http://localhost:15500',
-  'http://127.0.0.1:15500',
-  process.env.FRONTEND_URL || 'http://localhost:5500'
-];
+  'https://asta-mart.in',
+  'https://www.asta-mart.in',
+  ...(process.env.NODE_ENV !== 'production'
+    ? ['http://localhost:5500', 'http://127.0.0.1:5500',
+       'http://localhost:5501', 'http://127.0.0.1:5501']
+    : [])
+].filter(Boolean);
 app.use(cors({
   origin: corsOrigins,
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
@@ -77,6 +84,23 @@ const verifyLimiter = rateLimit({
   legacyHeaders: false
 });
 
+const syncLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute window
+  max: 3, // maximum 3 sync requests per IP per minute
+  message: { error: 'Too many sync requests. Please wait to try again.' },
+  standardHeaders: false,
+  legacyHeaders: false
+});
+
+const viewLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 1, // maximum 1 view per hour per IP per listing
+  keyGenerator: (req) => req.ip + ':' + req.params.id,
+  message: { error: 'You have already viewed this listing recently.' },
+  standardHeaders: false,
+  legacyHeaders: false
+});
+
 // --- EMAIL CONFIGURATION (Optional for development) ---
 let transporter = null;
 const emailConfigured = process.env.EMAIL_USER && process.env.EMAIL_PASS && 
@@ -97,7 +121,7 @@ if (emailConfigured) {
 }
 
 // --- ADMIN AUTHENTICATION MIDDLEWARE ---
-const ADMIN_SECRET = process.env.ADMIN_SECRET || 'default-secret';
+const ADMIN_SECRET = process.env.ADMIN_SECRET;
 function adminAuth(req, res, next) {
   const token = req.headers['x-admin-token'];
   if (!token || token !== ADMIN_SECRET) {
@@ -107,11 +131,11 @@ function adminAuth(req, res, next) {
 }
 
 // --- USER AUTHENTICATION MIDDLEWARE (JWT-based) ---
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET;
 
 function requireAuth(req, res, next) {
-  const authHeader = req.headers.authorization;
-  const token = authHeader?.split(' ')[1];
+  // Check for token in httpOnly cookie (preferred) or Authorization header (fallback)
+  const token = req.cookies.am_token || req.headers.authorization?.split(' ')[1];
   
   if (!token) {
     return res.status(401).json({ error: 'Unauthorized: Please log in' });
@@ -236,8 +260,9 @@ app.post('/api/auth/send-otp', otpLimiter, async (req, res) => {
                 return res.status(500).json({ error: 'Failed to send OTP. Please try again.' });
             }
         } else {
-            // Development mode: log OTP to console
-            console.log(`\n🔑 [AUTH - DEV MODE] OTP for ${email} is: ${otp}\n`);
+            // Development mode: log masked email only, NEVER log the actual OTP code
+            const maskedEmail = email.replace(/(.{2}).*(@)/, '$1***$2');
+            console.log(`[AUTH-DEV] OTP sent to ${maskedEmail} (code not displayed for security)`);
         }
 
         res.json({ success: true, message: 'OTP sent to your email' });
@@ -271,11 +296,30 @@ app.post('/api/auth/verify-otp', verifyLimiter, async (req, res) => {
         // Issue JWT token (valid for 7 days)
         const token = jwt.sign({ email: user.email, name: user.name }, JWT_SECRET, { expiresIn: '7d' });
 
-        res.json({ success: true, token, user: { email: user.email, name: user.name } });
+        // Send token as httpOnly cookie (XSS-safe)
+        res.cookie('am_token', token, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'Strict',
+          maxAge: 7 * 24 * 60 * 60 * 1000
+        });
+        
+        // Return user info (not token)
+        res.json({ success: true, user: { email: user.email, name: user.name } });
     } catch (err) {
         console.error('❌ Verify Error:', err);
         res.status(500).json({ error: 'Verification failed. Please try again.' });
     }
+});
+
+// --- LOGOUT ROUTE ---
+app.post('/api/auth/logout', (req, res) => {
+  res.clearCookie('am_token', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'Strict'
+  });
+  res.json({ success: true });
 });
 
 // --- USER PROFILE ROUTE ---
@@ -351,7 +395,7 @@ function validateAccessToken(token) {
 
 
 // --- RIOT SYNC ROUTE ---
-app.post('/api/riot/sync-url', async (req, res) => {
+app.post('/api/riot/sync-url', syncLimiter, async (req, res) => {
     try {
         const { redirectUrl } = req.body;
         if (!redirectUrl || typeof redirectUrl !== 'string') {
@@ -378,9 +422,11 @@ app.post('/api/riot/sync-url', async (req, res) => {
 });
 
 // --- VAULT ROUTES ---
-app.post('/api/vault/sync', async (req, res) => {
+app.post('/api/vault/sync', requireAuth, syncLimiter, async (req, res) => {
     try {
-        const { redirectUrl, ownerEmail } = req.body;
+        const { redirectUrl } = req.body;
+        const ownerEmail = req.user.email; // From verified JWT — not from body!
+        
         if (!redirectUrl || typeof redirectUrl !== 'string') {
             return res.status(400).json({ error: 'Invalid request format.' });
         }
@@ -399,7 +445,7 @@ app.post('/api/vault/sync', async (req, res) => {
         const catalog = await getCachedCatalog(); 
         const accountData = await riotAuth.syncFromToken(accessToken, idToken || "", catalog);
         
-        const slug = crypto.randomBytes(4).toString('hex');
+        const slug = crypto.randomBytes(16).toString('hex'); // 128-bit entropy
         const newVault = new Vault({ ownerEmail, slug, accountData });
         await newVault.save();
         
@@ -411,8 +457,14 @@ app.post('/api/vault/sync', async (req, res) => {
     }
 });
 
-app.get('/api/vault/user/:email', async (req, res) => {
-    try { res.json(await Vault.find({ ownerEmail: req.params.email }).sort({ createdAt: -1 })); } 
+app.get('/api/vault/user/:email', requireAuth, async (req, res) => {
+    try {
+        // Verify ownership — users can only see their own vault
+        if (req.params.email !== req.user.email) {
+            return res.status(403).json({ error: 'Forbidden' });
+        }
+        res.json(await Vault.find({ ownerEmail: req.params.email }).sort({ createdAt: -1 }));
+    } 
     catch (err) { 
       console.error('❌ Vault User Fetch Error:', err);
       res.status(500).json({ error: 'An unexpected error occurred. Please try again.' }); 
@@ -483,7 +535,7 @@ app.post('/api/listings/:id/reveal', requireAuth, async (req, res) => {
 });
 
 // --- INCREMENT VIEW COUNT ENDPOINT ---
-app.post('/api/listings/:id/view', async (req, res) => {
+app.post('/api/listings/:id/view', viewLimiter, async (req, res) => {
   try {
     await Listing.findByIdAndUpdate(req.params.id, { $inc: { views: 1 } });
     res.json({ success: true });
@@ -500,6 +552,13 @@ app.post('/api/listings', requireAuth, [
   body('rank').optional().trim().isString().isLength({ max: 50 }).withMessage('Rank must be 50 characters or less'),
   body('level').optional().isInt({ min: 1, max: 999 }).withMessage('Level must be between 1 and 999'),
   body('skinCount').optional().isInt({ min: 0 }).withMessage('Skin count must be a non-negative integer'),
+  body('images')
+    .optional()
+    .isArray({ max: 10 }).withMessage('Maximum 10 images allowed')
+    .custom(arr => arr.every(url => typeof url === 'string' &&
+      (url.startsWith('https://') || url.startsWith('http://')) &&
+      url.length < 500
+    )).withMessage('All images must be valid http/https URLs under 500 characters'),
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -567,9 +626,27 @@ app.put('/api/listings/:id', requireAuth, async (req, res) => {
 });
 
 // --- ORDERS API ---
-app.post('/api/orders/inventory-edit', async (req, res) => {
+app.post('/api/orders/inventory-edit', [
+  body('sellerName').trim().notEmpty().isLength({ max: 100 }),
+  body('sellerPhone').optional().trim().matches(/^\+?[1-9]\d{1,14}$/),
+  body('title').trim().notEmpty().isLength({ max: 200 }),
+  body('price').isFloat({ min: 0, max: 10000000 }),
+  body('transactionId').optional().trim().isLength({ max: 50 }),
+], async (req, res) => {
     try {
-        const newOrder = new Order(req.body);
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+        
+        // Extract only whitelisted fields — never accept status from body
+        const { sellerName, sellerPhone, title, price, transactionId } = req.body;
+        const newOrder = new Order({
+            sellerName,
+            sellerPhone: sellerPhone || '',
+            title,
+            price,
+            transactionId: transactionId || '',
+            status: 'pending' // Always set to pending — client cannot override
+        });
         await newOrder.save();
         res.json({ success: true });
     } catch (err) { 
@@ -579,6 +656,16 @@ app.post('/api/orders/inventory-edit', async (req, res) => {
 });
 
 // --- ADMIN ROUTES ---
+app.get('/api/admin/listings', adminAuth, async (req, res) => {
+  try {
+    const listings = await Listing.find({}).lean().sort({ createdAt: -1 });
+    res.json(listings);
+  } catch (err) {
+    console.error('❌ Admin Listings Fetch Error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 app.get('/api/admin/orders', adminAuth, async (req, res) => {
     try { res.json(await Order.find().sort({ createdAt: -1 })); } 
     catch (err) { 

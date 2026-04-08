@@ -194,15 +194,10 @@ function saveProfileHub() {
    localStorage.setItem('am_seller_profile', JSON.stringify(profile));
    
    // Sync to backend via API
-   const token = localStorage.getItem('am_token');
-   if (!token) {
-     console.error('No auth token found');
-     return;
-   }
-   
    fetch(`${API_BASE_URL}/users/profile`, {
      method: 'PATCH',
      headers: getAuthHeaders(),
+     credentials: 'include',
      body: JSON.stringify(profileData)
    })
    .then(res => {
@@ -210,13 +205,18 @@ function saveProfileHub() {
      return res.json();
    })
    .then(data => {
+     // Server save successful
+     document.getElementById('profileSaved').textContent = '✅ Saved to server!';
+     document.getElementById('profileSaved').style.color = 'var(--accent-green)';
      document.getElementById('profileSaved').classList.remove('hidden');
      setTimeout(() => document.getElementById('profileSaved').classList.add('hidden'), 3000);
      console.log('Profile updated successfully');
    })
    .catch(err => {
+     // Server save failed - data is in localStorage only
      console.error('Error updating profile:', err);
-     // Even if API fails, localStorage was saved as fallback
+     document.getElementById('profileSaved').textContent = '⚠️ Saved locally only (server offline)';
+     document.getElementById('profileSaved').style.color = '#f59e5b';
      document.getElementById('profileSaved').classList.remove('hidden');
      setTimeout(() => document.getElementById('profileSaved').classList.add('hidden'), 3000);
    });

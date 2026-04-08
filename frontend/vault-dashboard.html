@@ -284,10 +284,18 @@ async function syncToVault() {
 async function deleteVault(id) {
   if(!confirm("Remove this account from your Vault?")) return;
   try {
-    await fetch(`${API_BASE_URL}/vault/${id}`, { method: 'DELETE' });
+    const res = await fetch(`${API_BASE_URL}/vault/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Failed to delete');
+    }
     location.reload();
   } catch(err) {
-    alert("Failed to delete.");
+    alert("Failed to delete: " + err.message);
   }
 }
 

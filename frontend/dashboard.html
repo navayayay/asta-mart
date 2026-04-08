@@ -188,6 +188,12 @@ function loadDashboard(user) {
   
   document.getElementById('ds-total').textContent = myListings.length;
   document.getElementById('ds-active').textContent = active.length;
+  
+  // Aggregate views and reveals from all listings
+  const totalViews = myListings.reduce((sum, l) => sum + (l.views || 0), 0);
+  const totalReveals = myListings.reduce((sum, l) => sum + (l.contactReveals || 0), 0);
+  document.getElementById('ds-views').textContent = totalViews;
+  document.getElementById('ds-reveals').textContent = totalReveals;
 
   // Active Grid
   const grid = document.getElementById('myListingsGrid');
@@ -213,7 +219,10 @@ function loadDashboard(user) {
 }
 
 function renderDashCard(l) {
-  const img = l.images && l.images[0] ? `<img src="${l.images[0]}" alt="">` : '<div class="card-img-placeholder">🎮</div>';
+  const imgSrc = l.images && l.images[0] ? sanitize(l.images[0]) : null;
+  const img = imgSrc
+    ? `<img src="${imgSrc}" alt="" onerror="this.style.display='none'">`
+    : '<div class="card-img-placeholder">🎮</div>';
   return `
     <div class="dash-listing-card">
       <div class="dlc-img">${img}</div>
@@ -265,18 +274,24 @@ function updateProfile() {
   fetch(`${API_BASE_URL}/users/profile`, {
     method: 'PATCH',
     headers: getAuthHeaders(),
+    credentials: 'include',
     body: JSON.stringify({ discord, whatsapp })
   })
   .then(res => res.ok ? res.json() : Promise.reject())
   .then(data => {
+    // Server save successful
+    document.getElementById('profileSaved').textContent = '✅ Saved to server!';
+    document.getElementById('profileSaved').style.color = 'var(--accent-green)';
     document.getElementById('profileSaved').classList.remove('hidden');
     setTimeout(() => document.getElementById('profileSaved').classList.add('hidden'), 2000);
   })
   .catch(err => {
-    // Graceful fallback - already saved to localStorage
+    // Server save failed - data is in localStorage only
     console.error('Profile sync error:', err);
+    document.getElementById('profileSaved').textContent = '⚠️ Saved locally only (server offline)';
+    document.getElementById('profileSaved').style.color = '#f59e5b';
     document.getElementById('profileSaved').classList.remove('hidden');
-    setTimeout(() => document.getElementById('profileSaved').classList.add('hidden'), 2000);
+    setTimeout(() => document.getElementById('profileSaved').classList.add('hidden'), 3000);
   });
 }
 
