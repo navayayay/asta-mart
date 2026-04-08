@@ -59,13 +59,13 @@ img { max-width: 100%; }
   position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
   display: flex; align-items: center; gap: 32px;
   padding: 0 36px; height: 64px;
-  background: rgba(6,17,26,0.95); backdrop-filter: blur(20px) saturate(1.5);
+  background: rgba(30, 60, 90, 0.90); backdrop-filter: blur(20px) saturate(1.5);
   border-bottom: 1px solid var(--border-bright);
   box-shadow: 0 4px 32px rgba(0,0,0,0.6);
   transition: all 0.3s ease;
 }
 .navbar.scrolled {
-  background: rgba(6,17,26,0.98);
+  background: rgba(35, 70, 100, 0.93);
   backdrop-filter: blur(30px) saturate(2);
   box-shadow: 0 4px 40px rgba(0,0,0,0.8), 0 0 20px rgba(255,70,85,0.1);
 }
@@ -752,7 +752,7 @@ textarea.auth-input { resize: vertical; }
 .ss-actions { display: flex; gap: 8px; }
 
 /* ===================== FOOTER ===================== */
-.footer { background: var(--bg2); border-top: 1px solid var(--border); padding: 64px 0 28px; position: relative; }
+.footer { background: rgba(20, 40, 60, 0.95); border-top: 1px solid var(--border); padding: 64px 0 28px; position: relative; }
 .footer::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: linear-gradient(90deg, transparent, var(--red), var(--accent-blue), transparent); opacity: 0.4; }
 .footer-top { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 48px; margin-bottom: 48px; }
 .footer-brand p { color: var(--white-dim); font-size: 13px; line-height: 1.7; margin-top: 14px; max-width: 280px; font-family: var(--font-mono); }
