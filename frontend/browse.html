@@ -3,6 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Browse thousands of verified Valorant accounts across all ranks and regions. Find your perfect account on Asta Mart marketplace.">
+<meta property="og:title" content="Browse Valorant Accounts — Asta Mart">
+<meta property="og:description" content="Explore verified Valorant accounts by rank, region, and features.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
 <title>Browse Accounts — Asta Mart</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
@@ -244,7 +249,7 @@ document.addEventListener('DOMContentLoaded', fetchListings);
 async function fetchListings() {
     const container = document.getElementById('listingsContainer');
     try {
-        const res = await fetch('http://localhost:5000/api/listings');
+        const res = await fetch(`${API_BASE_URL}/listings`);
         if (!res.ok) throw new Error('Network response was not ok');
         
         allListings = await res.json();

@@ -1,7 +1,7 @@
 // ===================== SAMPLE LISTINGS DATA =====================
 const SAMPLE_LISTINGS = [
   {
-    id: 1001, sellerId: '+919876543210', sellerName: 'RazeKing', sellerRep: 4.8,
+    id: 1001, sellerId: 'razeking@example.com', sellerName: 'RazeKing', sellerRep: 4.8,
     title: 'Radiant Account | 67 Skins | AP Server | Champions Vandal',
     price: 28000, region: 'AP',
     rank: 'Radiant', peakRank: 'Radiant',
@@ -21,7 +21,7 @@ const SAMPLE_LISTINGS = [
     status: 'active', views: 247, contactReveals: 38, saves: 19, isGem: false
   },
   {
-    id: 1002, sellerId: '+919876543211', sellerName: 'SkyeMain', sellerRep: 4.2,
+    id: 1002, sellerId: 'skyemain@example.com', sellerName: 'SkyeMain', sellerRep: 4.2,
     title: 'Immortal 3 Account | 43 Skins | AP | Prime + Glitchpop',
     price: 9500, region: 'AP',
     rank: 'Immortal 3', peakRank: 'Immortal 3',
@@ -41,7 +41,7 @@ const SAMPLE_LISTINGS = [
     status: 'active', views: 89, contactReveals: 12, saves: 7, isGem: false
   },
   {
-    id: 1003, sellerId: '+919876543212', sellerName: 'DiamondDave', sellerRep: 3.9,
+    id: 1003, sellerId: 'diamonddave@example.com', sellerName: 'DiamondDave', sellerRep: 3.9,
     title: 'Diamond 2 Account | 28 Skins | NA Server | Elderflame Op',
     price: 5800, region: 'NA',
     rank: 'Diamond 2', peakRank: 'Diamond 3',

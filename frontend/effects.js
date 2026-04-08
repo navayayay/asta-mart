@@ -30,21 +30,3 @@ const imageObserver = new IntersectionObserver((entries) => {
 document.querySelectorAll('img[data-src]').forEach(img => {
   imageObserver.observe(img);
 });
-
-// Add subtle parallax to listing cards
-window.addEventListener('scroll', () => {
-  const cards = document.querySelectorAll('.listing-card');
-  const scrolled = window.pageYOffset;
-  
-  cards.forEach((card) => {
-    const cardTop = card.getBoundingClientRect().top + scrolled;
-    const cardVisible = scrolled + window.innerHeight > cardTop;
-    
-    if (cardVisible) {
-      const distance = scrolled + window.innerHeight - cardTop;
-      const speed = 0.05;
-      const yPos = distance * speed;
-      card.style.transform = `translateY(${yPos}px)`;
-    }
-  });
-}, { passive: true });

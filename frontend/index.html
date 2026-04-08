@@ -3,12 +3,23 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Asta Mart is the premier marketplace for buying and selling Valorant accounts. Verified sellers, secure transactions, and thousands of high-ranked accounts.">
+<meta property="og:title" content="Asta Mart — Valorant Account Marketplace">
+<meta property="og:description" content="Buy verified Valorant accounts from trusted sellers. Radiant, Immortal, Diamond ranks available on all servers.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://asta-mart.in">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Asta Mart — Valorant Account Marketplace">
+<meta name="twitter:description" content="Buy and sell verified Valorant accounts instantly.">
 <title>Asta Mart — Valorant Account Marketplace</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@300;400;500&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
+<!-- Lenis smooth scroll library -->
 <script src="https://unpkg.com/@studio-freight/lenis@1.0.34/dist/lenis.min.js"></script>
+<!-- GSAP animation library -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+<!-- GSAP ScrollTrigger plugin -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
 </head>
 <body>
@@ -21,7 +32,7 @@
   <div class="nav-links" style="gap: 15px; align-items: center;">
     <a href="browse.html" class="nav-premium-btn"><span class="nav-premium-inner">Browse Accounts</span></a>
     <a href="get-edit.html" class="nav-premium-btn"><span class="nav-premium-inner">Get Inv Edit</span></a>
-    <a href="vault-dashboard.html" class="nav-premium-btn"><span class="nav-premium-inner" style="color: var(--accent-cyan);">Asta Vault</span></a>
+    <a href="vault-dashboard.html" class="nav-premium-btn" id="vaultNavBtn"><span class="nav-premium-inner" style="color: var(--accent-cyan);">Asta Vault</span></a>
   </div>
   
   <div class="nav-actions" style="display: flex; align-items: center; gap: 20px;">
@@ -83,6 +94,8 @@
 
   </div>
 </nav>
+
+<div id="authModal" class="modal-overlay hidden"><div class="modal-box"><button class="modal-close" onclick="closeAuth()">✕</button><div class="auth-tabs"><button class="auth-tab active" onclick="switchTab('login')">Login</button><button class="auth-tab" onclick="switchTab('signup')">Sign Up</button></div><div id="loginForm" class="auth-form"><h2>Welcome Back</h2><p class="auth-sub">Enter your email address to continue</p><input type="email" placeholder="you@example.com" class="auth-input" id="loginEmail"><button class="btn-primary full" onclick="sendOTP('login')">Send Code</button><div id="loginOTPSection" class="otp-section hidden"><input type="text" placeholder="Enter 6-digit code" class="auth-input" id="loginOTP" maxlength="6"><button class="btn-primary full" onclick="verifyOTP('login')">Verify & Login</button></div></div><div id="signupForm" class="auth-form hidden"><h2>Create Account</h2><p class="auth-sub">Join Asta Mart</p><input type="text" placeholder="Full Name" class="auth-input" id="signupName"><input type="email" placeholder="you@example.com" class="auth-input" id="signupEmail"><button class="btn-primary full" onclick="sendOTP('signup')">Send Code</button><div id="signupOTPSection" class="otp-section hidden"><input type="text" placeholder="Enter 6-digit code" class="auth-input" id="signupOTP" maxlength="6"><button class="btn-primary full" onclick="verifyOTP('signup')">Verify & Create Account</button></div></div></div></div>
 
 <section class="hero premium-hero" id="heroSection">
   <div class="pin-container">

@@ -95,6 +95,13 @@
     <p style="color: var(--white-dim); font-family: var(--font-mono); margin-bottom: 30px;">You haven't saved any accounts yet. Click the heart icon on any listing to save it here.</p>
     <a href="browse.html" class="btn-primary" style="display: inline-block;">Browse Accounts</a>
   </div>
+
+  <div id="savedError" class="no-results hidden" style="text-align: center; padding: 100px 20px;">
+    <div class="no-results-icon" style="font-size: 64px; margin-bottom: 20px;">⚠️</div>
+    <h3 style="font-family: var(--font-display); font-size: 32px; font-weight: 800; text-transform: uppercase; margin-bottom: 10px; color: var(--red);">Failed to Load Accounts</h3>
+    <p style="color: var(--white-dim); font-family: var(--font-mono); margin-bottom: 30px;">Could not fetch saved accounts from the server. Please try again.</p>
+    <button class="btn-primary" style="display: inline-block;" onclick="window.location.reload()">Refresh Page</button>
+  </div>
 </div>
 
 <script src="data.js"></script>
@@ -105,18 +112,29 @@
     const user = JSON.parse(localStorage.getItem('am_user') || 'null');
     if (!user) { window.location.href = 'index.html'; return; }
     
-    if (typeof GLOBAL_LISTINGS === 'undefined' || GLOBAL_LISTINGS.length === 0) {
-      await fetchAllListingsFromDB();
-    }
-    
-    const key = 'am_wishlist_' + user.email;
-    const savedIds = JSON.parse(localStorage.getItem(key) || '[]');
-    const savedListings = GLOBAL_LISTINGS.filter(l => savedIds.includes((l._id || l.id).toString()));
+    try {
+      if (typeof GLOBAL_LISTINGS === 'undefined' || GLOBAL_LISTINGS.length === 0) {
+        await fetchAllListingsFromDB();
+      }
+      
+      // Check if fetch failed (GLOBAL_LISTINGS empty) by checking if we have data or sample data
+      if (GLOBAL_LISTINGS.length === 0) {
+        document.getElementById('savedError').classList.remove('hidden');
+        return;
+      }
+      
+      const key = 'am_wishlist_' + user.email;
+      const savedIds = JSON.parse(localStorage.getItem(key) || '[]');
+      const savedListings = GLOBAL_LISTINGS.filter(l => savedIds.includes((l._id || l.id).toString()));
 
-    if (savedListings.length === 0) {
-      document.getElementById('noSaved').classList.remove('hidden');
-    } else {
-      renderListingsGrid('savedGrid', savedListings);
+      if (savedListings.length === 0) {
+        document.getElementById('noSaved').classList.remove('hidden');
+      } else {
+        renderListingsGrid('savedGrid', savedListings);
+      }
+    } catch (e) {
+      console.error('Error loading saved accounts:', e);
+      document.getElementById('savedError').classList.remove('hidden');
     }
   });
 </script>

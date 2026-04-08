@@ -195,7 +195,7 @@ async function loadVault() {
   }
 
   try {
-    const res = await fetch(`http://localhost:5000/api/vault/user/${user.email}`);
+    const res = await fetch(`${API_BASE_URL}/vault/user/${user.email}`);
     const vaultItems = await res.json();
     
     document.getElementById('slot-count').textContent = vaultItems.length;
@@ -262,7 +262,7 @@ async function syncToVault() {
   document.getElementById('syncBtn').disabled = true;
 
   try {
-    const res = await fetch('http://localhost:5000/api/vault/sync', {
+    const res = await fetch(`${API_BASE_URL}/vault/sync`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ redirectUrl: url, ownerEmail: user.email })
@@ -284,7 +284,7 @@ async function syncToVault() {
 async function deleteVault(id) {
   if(!confirm("Remove this account from your Vault?")) return;
   try {
-    await fetch(`http://localhost:5000/api/vault/${id}`, { method: 'DELETE' });
+    await fetch(`${API_BASE_URL}/vault/${id}`, { method: 'DELETE' });
     location.reload();
   } catch(err) {
     alert("Failed to delete.");

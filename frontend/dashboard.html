@@ -94,6 +94,13 @@
       <a href="create-listing.html" class="btn-primary">+ New Listing</a>
     </div>
 
+    <div id="dashError" class="no-results hidden" style="text-align: center; padding: 100px 20px; margin-top: 40px;">
+      <div class="no-results-icon" style="font-size: 64px; margin-bottom: 20px;">⚠️</div>
+      <h3 style="font-family: var(--font-display); font-size: 32px; font-weight: 800; text-transform: uppercase; margin-bottom: 10px; color: var(--red);">Failed to Load Dashboard</h3>
+      <p style="color: var(--white-dim); font-family: var(--font-mono); margin-bottom: 30px;">Could not fetch your listings from the server. Please try again.</p>
+      <button class="btn-primary" style="display: inline-block;" onclick="window.location.reload()">Refresh Page</button>
+    </div>
+
     <div class="dash-stats">
       <div class="dash-stat"><div class="ds-num" id="ds-total">0</div><div class="ds-label">Total Listings</div></div>
       <div class="dash-stat"><div class="ds-num" id="ds-active">0</div><div class="ds-label">Active</div></div>
@@ -149,17 +156,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('dashContent').style.display = 'block';
     document.getElementById('dashWelcome').textContent = 'Welcome back, ' + user.name + '!';
     if(document.getElementById('avatarInitial')) document.getElementById('avatarInitial').textContent = user.name[0].toUpperCase();
-    await fetchAllListingsFromDB(); 
-    loadDashboard(user);
+    
+    try {
+      await fetchAllListingsFromDB();
+      
+      // Check if fetch failed
+      if (GLOBAL_LISTINGS.length === 0) {
+        document.getElementById('dashError').classList.remove('hidden');
+        // Hide stats and tabs
+        document.querySelectorAll('.dash-stats, .dash-tabs, .dash-tab-content').forEach(el => el.style.display = 'none');
+        return;
+      }
+      
+      loadDashboard(user);
+    } catch (e) {
+      console.error('Error loading dashboard:', e);
+      document.getElementById('dashError').classList.remove('hidden');
+      // Hide stats and tabs
+      document.querySelectorAll('.dash-stats, .dash-tabs, .dash-tab-content').forEach(el => el.style.display = 'none');
+    }
   }
 });
-
-async function fetchAllListingsFromDB() {
-  try {
-    const res = await fetch('http://localhost:5000/api/listings');
-    window.GLOBAL_LISTINGS = await res.json();
-  } catch(e) { window.GLOBAL_LISTINGS = []; }
-}
 
 function loadDashboard(user) {
   const allListings = window.GLOBAL_LISTINGS || [];
@@ -219,22 +236,48 @@ function renderDashCard(l) {
 
 async function markSold(id) {
   if (!confirm('Mark as sold?')) return;
-  await fetch(`http://localhost:5000/api/listings/${id}`, { method: 'PUT' });
-  location.reload();
+  const res = await fetch(`${API_BASE_URL}/listings/${id}`, { 
+    method: 'PUT',
+    headers: getAuthHeaders()
+  });
+  if (res.ok) location.reload();
+  else alert('Failed to update listing');
 }
 async function deleteListing(id) {
   if (!confirm('Delete permanently?')) return;
-  await fetch(`http://localhost:5000/api/listings/${id}`, { method: 'DELETE' });
-  location.reload();
+  const res = await fetch(`${API_BASE_URL}/listings/${id}`, { 
+    method: 'DELETE',
+    headers: getAuthHeaders()
+  });
+  if (res.ok) location.reload();
+  else alert('Failed to delete listing');
 }
 
 function updateProfile() {
-  const profile = JSON.parse(localStorage.getItem('am_seller_profile') || '{}');
-  profile.whatsapp = document.getElementById('prof-whatsapp').value; 
-  profile.discord = document.getElementById('prof-discord').value;
+  const discord = document.getElementById('prof-discord').value;
+  const whatsapp = document.getElementById('prof-whatsapp').value;
+  
+  // Save to localStorage for offline compatibility
+  const profile = { discord, whatsapp };
   localStorage.setItem('am_seller_profile', JSON.stringify(profile));
-  document.getElementById('profileSaved').classList.remove('hidden');
-  setTimeout(() => document.getElementById('profileSaved').classList.add('hidden'), 2000);
+  
+  // Sync to backend
+  fetch(`${API_BASE_URL}/users/profile`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ discord, whatsapp })
+  })
+  .then(res => res.ok ? res.json() : Promise.reject())
+  .then(data => {
+    document.getElementById('profileSaved').classList.remove('hidden');
+    setTimeout(() => document.getElementById('profileSaved').classList.add('hidden'), 2000);
+  })
+  .catch(err => {
+    // Graceful fallback - already saved to localStorage
+    console.error('Profile sync error:', err);
+    document.getElementById('profileSaved').classList.remove('hidden');
+    setTimeout(() => document.getElementById('profileSaved').classList.add('hidden'), 2000);
+  });
 }
 
 function showDashTab(btn, tab) {

@@ -1,0 +1,22 @@
+<!-- FAVICON SETUP INSTRUCTIONS -->
+<!-- 
+  Favicon Setup for Asta Mart:
+  
+  1. Convert the existing logo (asta_mart_logo_transparent.png) to favicon format:
+     - Use an online converter: https://convertio.co/png-ico/
+     - Or use ImageMagick: convert asta_mart_logo_transparent.png -define icon:auto-resize=256,128,96,64,48,32,16 favicon.ico
+     - Or use ffmpeg: ffmpeg -i asta_mart_logo_transparent.png -vf "scale=256:256" favicon.ico
+  
+  2. Place favicon.ico in the frontend/ root directory
+  
+  3. Modern browsers will automatically detect favicon.ico in the root
+  
+  4. For additional favicon support across platforms, add these to HTML <head>:
+     <link rel="icon" type="image/x-icon" href="/favicon.ico">
+     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+     <link rel="manifest" href="/site.webmanifest">
+-->
+
+Favicon conversion commands:
+- ImageMagick: convert asta_mart_logo_transparent.png -define icon:auto-resize=256,128,96,64,48,32,16 favicon.ico
+- Or use online tool: https://realfavicongenerator.net/

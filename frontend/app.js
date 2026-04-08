@@ -1,7 +1,21 @@
 // ===================== APP STATE & API CONFIG =====================
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.startsWith('192.168.'))
+  ? 'http://localhost:5000/api'
+  : 'https://api.asta-mart.in/api';
+console.log('🔌 API_BASE_URL:', API_BASE_URL, '| Hostname:', window.location.hostname);
 let compareList = JSON.parse(sessionStorage.getItem('am_compare') || '[]');
-let GLOBAL_LISTINGS = []; 
+let GLOBAL_LISTINGS = [];
+
+// ===================== XSS SANITIZATION =====================
+function sanitize(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+} 
 
 // ===================== INIT =====================
 document.addEventListener('DOMContentLoaded', async () => {
@@ -58,7 +72,17 @@ function updateStatCount() {
 // ===================== FLAWLESS GSAP SCROLL SYNC =====================
 function initVideoScrollEffects() {
   const video = document.getElementById('scrubVideo');
-  if (!video || typeof gsap === 'undefined') return;
+  if (!video) {
+    console.warn('Video element not found');
+    return;
+  }
+  if (typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined') {
+    console.warn('GSAP or ScrollTrigger not loaded');
+    return;
+  }
+  
+  video.muted = true;
+  video.playsinline = true;
   
   const lenis = new Lenis({ duration: 1.2, smooth: true });
   function raf(time) { lenis.raf(time); requestAnimationFrame(raf); }
@@ -70,41 +94,58 @@ function initVideoScrollEffects() {
   gsap.ticker.lagSmoothing(0);
   
   const startGSAPTimeline = () => {
-    video.pause(); 
-    const vidDur = (video.duration && !isNaN(video.duration)) ? video.duration : 5;
-    
-    let tl = gsap.timeline({ 
-      scrollTrigger: { 
-        trigger: ".premium-hero", 
-        start: "top top", 
-        end: "+=3500", // Cinematic scroll speed
-        scrub: true, 
-        pin: true 
-      } 
-    });
-    
-    let videoProxy = { time: 0 };
-    
-    // 1. Play video from 0 to exactly vidDur
-    tl.to(videoProxy, { 
-      time: vidDur, 
-      ease: "none", 
-      onUpdate: () => { if (video.readyState >= 2) video.currentTime = videoProxy.time; } 
-    }, 0);
-    
-    // 2. Fade Text early
-    tl.to(".gs-reveal-text", { opacity: 0, y: -100, scale: 1.05, duration: vidDur * 0.2 }, 0);
-    
-    // 3. Pop the cards up. 
-    tl.fromTo(".glass-card, .glass", 
-      { opacity: 0, y: 150, filter: "blur(10px)" }, 
-      { opacity: 1, y: 0, filter: "blur(0px)", stagger: 0.05, duration: vidDur * 0.1, ease: "power2.out" }, 
-      vidDur * 0.01 
-    );
+    try {
+      video.pause();
+      const vidDur = (video.duration && !isNaN(video.duration) && video.duration > 0) ? video.duration : 5;
+      
+      let tl = gsap.timeline({ 
+        scrollTrigger: { 
+          trigger: ".premium-hero", 
+          start: "top top", 
+          end: "+=3500",
+          scrub: 1, 
+          pin: true,
+          onUpdate: (self) => { ScrollTrigger.getAll()[0].refresh(); }
+        } 
+      });
+      
+      let videoProxy = { time: 0 };
+      
+      // 1. Play video from 0 to exactly vidDur
+      tl.to(videoProxy, { 
+        time: vidDur, 
+        ease: "none", 
+        onUpdate: () => { 
+          if (video && video.readyState >= 2) {
+            video.currentTime = videoProxy.time; 
+          } 
+        } 
+      }, 0);
+      
+      // 2. Fade Text early
+      tl.to(".gs-reveal-text", { opacity: 0, y: -100, scale: 1.05, duration: vidDur * 0.2 }, 0);
+      
+      // 3. Pop the cards up
+      tl.fromTo(".glass-card", 
+        { opacity: 0, y: 150, filter: "blur(10px)" }, 
+        { opacity: 1, y: 0, filter: "blur(0px)", stagger: 0.05, duration: vidDur * 0.1, ease: "power2.out" }, 
+        vidDur * 0.01 
+      );
+      
+      console.log('✅ GSAP timeline initialized', { videoDuration: vidDur, readyState: video.readyState });
+    } catch (err) {
+      console.error('Error initializing GSAP timeline:', err);
+    }
   };
   
-  if (video.readyState >= 1) startGSAPTimeline();
-  else video.addEventListener("loadedmetadata", startGSAPTimeline);
+  // Wait for video to be ready
+  if (video.readyState >= 2) {
+    startGSAPTimeline();
+  } else {
+    video.addEventListener('loadedmetadata', startGSAPTimeline, { once: true });
+    video.addEventListener('canplay', startGSAPTimeline, { once: true });
+  }
+  
   video.load();
 }
 
@@ -113,14 +154,20 @@ function initAuth() {
   const user = JSON.parse(localStorage.getItem('am_user') || 'null');
   const guestEl = document.getElementById('guestActions');
   const userEl = document.getElementById('userActions');
+  const cartEl = document.querySelector('.nav-cart-icon');
+  const vaultEl = document.getElementById('vaultNavBtn');
   const avatarEl = document.getElementById('avatarInitial');
   if (user) {
     guestEl?.classList.add('hidden');
     userEl?.classList.remove('hidden');
+    if (cartEl) cartEl.style.display = 'flex'; // Show cart when logged in
+    if (vaultEl) vaultEl.style.display = 'block'; // Show vault when logged in
     if (avatarEl) avatarEl.textContent = user.name ? user.name[0].toUpperCase() : 'U';
   } else {
     guestEl?.classList.remove('hidden');
     userEl?.classList.add('hidden');
+    if (cartEl) cartEl.style.display = 'none'; // Hide cart when logged out
+    if (vaultEl) vaultEl.style.display = 'none'; // Hide vault when logged out
   }
 }
 
@@ -160,7 +207,7 @@ async function sendOTP(type) {
     if (!res.ok) throw new Error(data.error);
 
     document.getElementById(type + 'OTPSection')?.classList.remove('hidden');
-    alert('Verification code sent! (Check backend console for code)');
+    alert('Verification code sent! Please check your email inbox (including spam folder).');
   } catch (err) {
     alert(err.message);
   }
@@ -181,7 +228,9 @@ async function verifyOTP(type) {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
 
+    // Store both user info and JWT token
     localStorage.setItem('am_user', JSON.stringify(data.user));
+    localStorage.setItem('am_token', data.token);
     
     closeAuth();
     initAuth();
@@ -194,8 +243,18 @@ async function verifyOTP(type) {
   }
 }
 
+function getAuthHeaders() {
+  const token = localStorage.getItem('am_token');
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+}
+
 function logout() {
   localStorage.removeItem('am_user');
+  localStorage.removeItem('am_token');
   location.href = 'index.html';
 }
 
@@ -323,15 +382,15 @@ function getCleanTags(l) {
 function renderListingCard(l) {
   if (!l) return '';
   const idToUse = l._id || l.id; 
-  const title = l.title || 'Untitled Account';
-  const rank = l.rank || 'Unranked';
+  const title = sanitize(l.title || 'Untitled Account');
+  const rank = sanitize(l.rank || 'Unranked');
   const price = l.price || 0;
-  const region = l.region || 'AP';
+  const region = sanitize(l.region || 'AP');
   const skinCount = l.skinCount || 0;
   const agentsCount = l.agentsCount || (l.agents ? l.agents.length : 0); 
   const saved = isWishlisted(idToUse);
   const inCompare = compareList.includes(idToUse);
-  const imgHtml = l.images && l.images[0] ? `<img src="${l.images[0]}" alt="${title}" loading="lazy">` : `<div class="card-img-placeholder">🎮</div>`;
+  const imgHtml = l.images && l.images[0] ? `<img src="${l.images[0]}" alt="${sanitize(l.title)}" loading="lazy">` : `<div class="card-img-placeholder">🎮</div>`;
   const badges = [];
   if (l.contactReveals > 10) badges.push('<span class="badge badge-hot">Hot</span>');
   if (l.images && l.images.length >= 3) badges.push('<span class="badge badge-verified">Verified</span>');
@@ -350,7 +409,7 @@ function renderListingCard(l) {
           <span class="region-badge">${region}</span>
         </div>
         <div class="card-title">${title}</div>
-        <div class="card-summary">${l.aiSummary || ''}</div>
+        <div class="card-summary">${sanitize(l.aiSummary || '')}</div>
         <div class="card-stats">
           <span class="card-stat"><span>${skinCount}</span> prem. skins</span>
           <span class="card-stat"><span>${agentsCount}</span> agents</span>
@@ -397,6 +456,14 @@ async function renderListingDetail(id) {
   if (l._id) fetch(`${API_BASE_URL}/listings/${l._id}/view`, { method: 'POST' }).catch(console.error);
 
   document.title = (l.title || 'Account') + ' — Asta Mart';
+  
+  // Update meta tags for social sharing
+  const description = l.aiSummary || l.title || 'Verified Valorant account on Asta Mart';
+  document.querySelector('meta[name="description"]')?.setAttribute('content', description);
+  document.querySelector('meta[property="og:title"]')?.setAttribute('content', (l.title || 'Account') + ' — Asta Mart');
+  document.querySelector('meta[property="og:description"]')?.setAttribute('content', description);
+  document.querySelector('meta[name="twitter:title"]')?.setAttribute('content', (l.title || 'Account') + ' — Asta Mart');
+  document.querySelector('meta[name="twitter:description"]')?.setAttribute('content', description);
   const idToUse = l._id || l.id;
   const cleanTags = getCleanTags(l).map(t => `<span class="pill" onclick="window.location='browse.html?tag=${t.replace('#','')}'">${t}</span>`).join('');
   const badges = [];
@@ -407,7 +474,7 @@ async function renderListingDetail(id) {
 
   const html = `
     <div class="detail-left">
-      <h1 class="detail-title" style="font-size: 42px; margin-bottom: 8px; font-family: var(--font-display); font-weight: 900; text-transform: uppercase;">${l.title || 'Untitled Account'}</h1>
+      <h1 class="detail-title" style="font-size: 42px; margin-bottom: 8px; font-family: var(--font-display); font-weight: 900; text-transform: uppercase;">${sanitize(l.title || 'Untitled Account')}</h1>
       <div class="detail-tags" style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 24px;">${cleanTags}${badges.join('')}</div>
 
       <div class="detail-stats-grid">
@@ -424,7 +491,7 @@ async function renderListingDetail(id) {
         <div class="detail-info-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
           <div style="background: rgba(15, 10, 30, 0.6); padding: 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
               <span style="display: block; font-family: var(--font-mono); font-size: 10px; color: var(--white-dim); text-transform: uppercase; letter-spacing: 1px;">Region</span>
-              <span style="font-family: var(--font-ui); font-size: 16px; font-weight: bold; color: #fff; margin-top: 4px; display: block;">${l.region || 'AP'}</span>
+              <span style="font-family: var(--font-ui); font-size: 16px; font-weight: bold; color: #fff; margin-top: 4px; display: block;">${sanitize(l.region || 'AP')}</span>
           </div>
           <div style="background: rgba(15, 10, 30, 0.6); padding: 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
               <span style="display: block; font-family: var(--font-mono); font-size: 10px; color: var(--white-dim); text-transform: uppercase; letter-spacing: 1px;">Email Status</span>
@@ -436,7 +503,7 @@ async function renderListingDetail(id) {
           </div>
           <div style="background: rgba(15, 10, 30, 0.6); padding: 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
               <span style="display: block; font-family: var(--font-mono); font-size: 10px; color: var(--white-dim); text-transform: uppercase; letter-spacing: 1px;">Limited Skins</span>
-              <span style="font-family: var(--font-ui); font-size: 14px; font-weight: bold; color: ${l.limited ? 'var(--accent-gold)' : '#fff'}; margin-top: 4px; display: block; line-height: 1.4;">${l.limited && l.limitedDetail ? `✨ ${l.limitedDetail}` : 'None'}</span>
+              <span style="font-family: var(--font-ui); font-size: 14px; font-weight: bold; color: ${l.limited ? 'var(--accent-gold)' : '#fff'}; margin-top: 4px; display: block; line-height: 1.4;">${l.limited && l.limitedDetail ? `✨ ${sanitize(l.limitedDetail)}` : 'None'}</span>
           </div>
         </div>
       </div>
@@ -479,9 +546,9 @@ async function renderListingDetail(id) {
         </div>
 
         <div class="seller-mini" style="display: flex; align-items: center; gap: 12px; padding: 16px; background: rgba(0,0,0,0.3); border-radius: 6px; margin-bottom: 24px;">
-          <div class="seller-avatar" style="width: 40px; height: 40px; border-radius: 50%; background: var(--red); display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 16px; color: #fff;">${l.sellerName ? l.sellerName[0].toUpperCase() : 'S'}</div>
+          <div class="seller-avatar" style="width: 40px; height: 40px; border-radius: 50%; background: var(--red); display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 16px; color: #fff;">${l.sellerName ? sanitize(l.sellerName)[0].toUpperCase() : 'S'}</div>
           <div class="seller-info">
-            <div class="seller-name" style="font-family: var(--font-ui); font-weight: 700; font-size: 15px;">${l.sellerName || 'Seller'}</div>
+            <div class="seller-name" style="font-family: var(--font-ui); font-weight: 700; font-size: 15px;">${sanitize(l.sellerName || 'Seller')}</div>
             <div class="seller-rep" style="color: var(--accent-gold); font-size: 12px; font-family: var(--font-mono); margin-top: 2px;">Verified Member</div>
           </div>
         </div>
@@ -503,7 +570,7 @@ async function renderListingDetail(id) {
         </div>
 
         <div class="contact-revealed" id="contactRevealed" style="display:none; margin-top: 16px;">
-          ${l.sellerId ? `<div class="contact-method" style="padding: 12px; background: rgba(0,0,0,0.3); margin-bottom: 8px; border-radius: 6px; font-family: var(--font-mono); font-size: 12px; display: flex; align-items: center; gap: 8px;"><span style="font-size: 16px;">✉️</span> <a href="mailto:${l.sellerId}" style="color: var(--accent-cyan); text-decoration: none;">${l.sellerId}</a></div>` : ''}
+          ${l.sellerId ? `<div class="contact-method" style="padding: 12px; background: rgba(0,0,0,0.3); margin-bottom: 8px; border-radius: 6px; font-family: var(--font-mono); font-size: 12px; display: flex; align-items: center; gap: 8px;"><span style="font-size: 16px;">✉️</span> <a href="mailto:${sanitize(l.sellerId)}" style="color: var(--accent-cyan); text-decoration: none;">${sanitize(l.sellerId)}</a></div>` : ''}
           <div id="extraContactMethods"></div>
           ${l.sellerPhone ? `<button class="btn-primary full" style="margin-top: 10px; background: #25D366; color: #fff; padding: 16px; font-size: 16px;" onclick="openWhatsApp('${idToUse}')">💬 Message on WhatsApp</button>` : ''}
         </div>
@@ -517,19 +584,41 @@ async function renderListingDetail(id) {
   renderListingsGrid('similarGrid', similar);
 }
 
-function revealContact(id) {
+async function revealContact(id) {
   const user = JSON.parse(localStorage.getItem('am_user') || 'null');
   if (!user) { openAuth('login'); return; }
-  const l = getListing(id);
-  let extraHtml = '';
-  if (l && l.sellerDiscord) extraHtml += `<div class="contact-method" style="padding: 12px; background: rgba(0,0,0,0.3); margin-bottom: 8px; border-radius: 6px; font-family: var(--font-mono); font-size: 12px; display: flex; align-items: center; gap: 8px;"><span style="font-size: 16px;">🎮</span> <strong>${l.sellerDiscord}</strong></div>`;
-  if (l && l.sellerPhone) extraHtml += `<div class="contact-method" style="padding: 12px; background: rgba(0,0,0,0.3); margin-bottom: 8px; border-radius: 6px; font-family: var(--font-mono); font-size: 12px; display: flex; align-items: center; gap: 8px;"><span style="font-size: 16px;">📱</span> <strong>${l.sellerPhone}</strong></div>`;
   
-  const extraEl = document.getElementById('extraContactMethods');
-  if (extraEl) extraEl.innerHTML = extraHtml;
+  try {
+    const response = await fetch(`${API_BASE_URL}/listings/${id}/reveal`, {
+      method: 'POST',
+      headers: getAuthHeaders()
+    });
+    
+    if (!response.ok) {
+      if (response.status === 401) {
+        openAuth('login');
+        return;
+      }
+      const err = await response.json();
+      throw new Error(err.error || 'Failed to reveal contact');
+    }
+    
+    const contactData = await response.json();
+    const l = getListing(id);
+    let extraHtml = '';
+    if (contactData.sellerId) extraHtml += `<div class="contact-method" style="padding: 12px; background: rgba(0,0,0,0.3); margin-bottom: 8px; border-radius: 6px; font-family: var(--font-mono); font-size: 12px; display: flex; align-items: center; gap: 8px;"><span style="font-size: 16px;">✉️</span> <a href="mailto:${sanitize(contactData.sellerId)}" style="color: var(--accent-cyan); text-decoration: none;">${sanitize(contactData.sellerId)}</a></div>`;
+    if (contactData.sellerDiscord) extraHtml += `<div class="contact-method" style="padding: 12px; background: rgba(0,0,0,0.3); margin-bottom: 8px; border-radius: 6px; font-family: var(--font-mono); font-size: 12px; display: flex; align-items: center; gap: 8px;"><span style="font-size: 16px;">🎮</span> <strong>${sanitize(contactData.sellerDiscord)}</strong></div>`;
+    if (contactData.sellerPhone) extraHtml += `<div class="contact-method" style="padding: 12px; background: rgba(0,0,0,0.3); margin-bottom: 8px; border-radius: 6px; font-family: var(--font-mono); font-size: 12px; display: flex; align-items: center; gap: 8px;"><span style="font-size: 16px;">📱</span> <strong>${sanitize(contactData.sellerPhone)}</strong></div>`;
+    if (contactData.sellerPhone) extraHtml += `<button class="btn-primary full" style="margin-top: 10px; background: #25D366; color: #fff; padding: 16px; font-size: 16px;" onclick="openWhatsAppWithPhone('${id}', '${contactData.sellerPhone.replace(/[^0-9]/g, '')}', '${(l ? l.sellerName : 'there').replace(/'/g, "\\'")}')">\ud83d\udcac Message on WhatsApp</button>`;
+    
+    const extraEl = document.getElementById('extraContactMethods');
+    if (extraEl) extraEl.innerHTML = extraHtml;
 
-  document.querySelector('.reveal-btn-section').style.display = 'none';
-  document.getElementById('contactRevealed').style.display = 'block';
+    document.querySelector('.reveal-btn-section').style.display = 'none';
+    document.getElementById('contactRevealed').style.display = 'block';
+  } catch (err) {
+    alert('Error revealing contact: ' + err.message);
+  }
 }
 
 function openWhatsApp(id) {
@@ -537,6 +626,12 @@ function openWhatsApp(id) {
   if (!l || !l.sellerPhone) return;
   const msg = encodeURIComponent(`Hi ${l.sellerName || 'there'}, I'm interested in your Valorant account listed on Asta Mart — "${l.title}". Can we discuss?`);
   const phone = l.sellerPhone.replace(/[^0-9]/g, '');
+  window.open(`https://wa.me/${phone}?text=${msg}`, '_blank');
+}
+
+function openWhatsAppWithPhone(id, phone, sellerName) {
+  const l = getListing(id);
+  const msg = encodeURIComponent(`Hi ${sellerName || 'there'}, I'm interested in your Valorant account listed on Asta Mart — "${(l ? l.title : 'your account')}". Can we discuss?`);
   window.open(`https://wa.me/${phone}?text=${msg}`, '_blank');
 }
 
@@ -637,15 +732,15 @@ function renderComparePage() {
   const listings = ids.map(id => getListing(id)).filter(Boolean);
   const rows = [
     { label: 'Price', key: l => `<div><div class="compare-price">₹${(l.price||0).toLocaleString('en-IN')}</div></div>`, best: (vals, listings) => listings.reduce((a,b) => (b.price < a.price ? b : a))._id },
-    { label: 'Current Rank', key: l => `<div style="display:flex; align-items:center;">${getRankIcon(l.rank)} ${l.rank}</div>`, best: (vals, listings) => listings.reduce((a,b) => getRankLevel(b.rank) > getRankLevel(a.rank) ? b : a)._id },
-    { label: 'Region', key: l => l.region },
+    { label: 'Current Rank', key: l => `<div style="display:flex; align-items:center;">${getRankIcon(l.rank)} ${sanitize(l.rank)}</div>`, best: (vals, listings) => listings.reduce((a,b) => getRankLevel(b.rank) > getRankLevel(a.rank) ? b : a)._id },
+    { label: 'Region', key: l => sanitize(l.region) },
     { label: 'Premium Skins', key: l => l.skinCount, best: (vals, listings) => listings.reduce((a,b) => b.skinCount > a.skinCount ? b : a)._id },
     { label: 'Agents', key: l => l.agentsCount, best: (vals, listings) => listings.reduce((a,b) => b.agentsCount > a.agentsCount ? b : a)._id },
     { label: 'Email Status', key: l => l.emailAccess ? '✅ Original Email' : '✅ Transfer to New Mail' },
     { label: 'Ban History', key: l => l.banHistory ? '⚠️ Yes' : '✅ Clean' },
     { label: 'VP Balance', key: l => l.vpBalance || 0, best: (vals, listings) => listings.reduce((a,b) => (b.vpBalance||0) > (a.vpBalance||0) ? b : a)._id },
   ];
-  const headerCols = listings.map(l => `<div class="compare-acc-col"><span class="compare-acc-header" style="font-size: 14px;">${l.title}</span><a href="listing.html?id=${l._id || l.id}" class="btn-ghost sm" style="margin-top:8px">View Listing</a></div>`).join('');
+  const headerCols = listings.map(l => `<div class="compare-acc-col"><span class="compare-acc-header" style="font-size: 14px;">${sanitize(l.title)}</span><a href="listing.html?id=${l._id || l.id}" class="btn-ghost sm" style="margin-top:8px">View Listing</a></div>`).join('');
   const rowsHtml = rows.map(row => {
     const bestId = row.best ? row.best(null, listings) : null;
     const cols = listings.map(l => {
@@ -663,10 +758,7 @@ async function deleteListing(id, btnElement) {
   try {
     const res = await fetch(`${API_BASE_URL}/listings/${id}`, {
       method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-        // If you have auth tokens, add them here: 'Authorization': `Bearer ${token}`
-      }
+      headers: getAuthHeaders()
     });
 
     if (!res.ok) {

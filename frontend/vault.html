@@ -213,7 +213,7 @@ async function fetchVaultData() {
     }
 
     try {
-        const res = await fetch(`http://localhost:5000/api/vault/public/${slug}`);
+        const res = await fetch(`${API_BASE_URL}/vault/public/${slug}`);
         if (!res.ok) throw new Error('Not found');
         
         const vaultItem = await res.json();

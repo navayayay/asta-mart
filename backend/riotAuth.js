@@ -1,5 +1,10 @@
 const axios = require('axios');
 
+// ⚠️  SECURITY: This module handles Riot OAuth access tokens which grant full account access.
+// - Tokens must ALWAYS be transmitted over HTTPS (enforced in production)
+// - Request bodies containing tokens must NEVER be logged
+// - Tokens are validated before any Riot API calls
+// - Error messages must NOT expose partial token values
 const VP_UUID = '85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741';
 const RP_UUID = 'e59aa87c-4cbf-517a-5983-6e81511be9b7';
 const SKIN_ITEM_TYPE_UUID = 'e7c63390-eda7-46e0-bb7a-a6abdacd2433';
@@ -36,6 +41,15 @@ class RiotAPI {
         let country = "";
 
         try {
+            // Validate token format before processing
+            if (!accessToken || typeof accessToken !== 'string') {
+                throw new Error('Invalid token format: token must be a non-empty string.');
+            }
+            const tokenRegex = /^[A-Za-z0-9\-._~+/]+=*\.[A-Za-z0-9\-._~+/]+=*\.[A-Za-z0-9\-._~+/]+=*$/;
+            if (!tokenRegex.test(accessToken) || accessToken.length < 50 || accessToken.length > 5000) {
+                throw new Error('Invalid token format: token does not match JWT structure.');
+            }
+
             console.log(`\n--- STARTING DYNAMIC RIOT SYNC ---`);
             
             // 1. Entitlements

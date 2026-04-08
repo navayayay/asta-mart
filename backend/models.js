@@ -5,16 +5,18 @@ const UserSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   discord: String,
+  whatsapp: String,
+  upi: String,
   instagram: String,
   joinedAt: { type: Date, default: Date.now }
 });
 
-// Listing Schema
+// Listing Schema (shared by all parts of the app)
 const ListingSchema = new mongoose.Schema({
   sellerId: { type: String, required: true }, // Links to User email
   sellerName: String,
-  sellerPhone: String,   // ADDED: For WhatsApp Redirect
-  sellerDiscord: String, // ADDED: For Discord display
+  sellerPhone: String,
+  sellerDiscord: String,
   title: { type: String, required: true },
   price: { type: Number, required: true },
   region: String,
@@ -33,17 +35,46 @@ const ListingSchema = new mongoose.Schema({
   collections: [String],
   agents: [String],
   skinTags: [String],
+  battlepassTags: [String],
   images: [String], 
   aiSummary: String,
   tags: [String],
-  isGem: Boolean,
-  status: { type: String, default: 'active', enum: ['active', 'sold', 'deleted'] },
+  status: { type: String, default: 'pending', enum: ['pending', 'active', 'sold', 'deleted'] },
   views: { type: Number, default: 0 },
   contactReveals: { type: Number, default: 0 },
   createdAt: { type: Date, default: Date.now }
 });
 
-// Transaction/Purchase History Schema
+// Vault Schema (OAuth token storage)
+const VaultSchema = new mongoose.Schema({
+  ownerEmail: { type: String, required: true },
+  slug: { type: String, required: true, unique: true },
+  accountData: { type: Object, required: true },
+  createdAt: { type: Date, default: Date.now },
+  expiresAt: { type: Date, expires: '7d', default: () => new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) }
+});
+
+// Order Schema (Purchase history)
+const OrderSchema = new mongoose.Schema({
+  sellerName: String,
+  sellerPhone: String,
+  sellerDiscord: String,
+  title: String,
+  skins: [String],
+  price: Number,
+  transactionId: String,
+  status: { type: String, default: 'pending', enum: ['pending', 'completed', 'disputed'] },
+  createdAt: { type: Date, default: Date.now }
+});
+
+// OTP Schema (One-time passwords with TTL)
+const OTPSchema = new mongoose.Schema({
+  email: { type: String, required: true },
+  code: { type: String, required: true },
+  createdAt: { type: Date, default: Date.now, expires: 300 } // Auto-delete after 5 minutes
+});
+
+// Transaction/Purchase History Schema (Optional - for future use)
 const TransactionSchema = new mongoose.Schema({
   listingId: { type: mongoose.Schema.Types.ObjectId, ref: 'Listing' },
   buyerEmail: { type: String, required: true },
@@ -56,5 +87,8 @@ const TransactionSchema = new mongoose.Schema({
 module.exports = {
   User: mongoose.model('User', UserSchema),
   Listing: mongoose.model('Listing', ListingSchema),
+  Vault: mongoose.model('Vault', VaultSchema),
+  Order: mongoose.model('Order', OrderSchema),
+  OTP: mongoose.model('OTP', OTPSchema),
   Transaction: mongoose.model('Transaction', TransactionSchema)
 };

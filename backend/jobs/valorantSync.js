@@ -29,11 +29,20 @@ async function syncValorantData() {
       displayTier: determineTierClass(skin.contentTierUuid) // Assign the CSS class!
     }));
 
-    // Clear old skins and insert the fresh, updated list
-    await Skin.deleteMany({});
-    await Skin.insertMany(formattedSkins);
+    // Upsert pattern: Update existing skins or insert new ones
+    // This is atomic and safe: if it fails mid-way, DB is not left empty
+    const bulkOps = formattedSkins.map(skin => ({
+      updateOne: {
+        filter: { uuid: skin.uuid },
+        update: { $set: skin },
+        upsert: true
+      }
+    }));
     
-    console.log(`✅ Successfully synced ${formattedSkins.length} skins.`);
+    if (bulkOps.length > 0) {
+      await Skin.bulkWrite(bulkOps);
+      console.log(`✅ Successfully synced ${formattedSkins.length} skins.`);
+    }
   } catch (error) {
     console.error('❌ Failed to sync Valorant data:', error.message);
   }

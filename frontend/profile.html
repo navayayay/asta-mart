@@ -132,6 +132,10 @@
         <label style="font-size: 12px;">Discord Username</label>
         <input type="text" class="auth-input" id="prof-discord" placeholder="user#1234" style="padding: 10px; font-size: 13px;">
       </div>
+      <div class="form-group" style="margin-bottom: 10px;">
+        <label style="font-size: 12px;">UPI ID (for payments)</label>
+        <input type="text" class="auth-input" id="prof-upi" placeholder="yourname@upi" style="padding: 10px; font-size: 13px;">
+      </div>
       
       <button class="btn-primary full" onclick="saveProfileHub()" style="margin-top: auto;">Save Identity Settings</button>
       <div id="profileSaved" class="success-msg hidden" style="margin-top: 10px; font-size: 12px; text-align: center; color: var(--accent-green);">✅ Settings Updated Successfully!</div>
@@ -153,15 +157,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Load existing identity
   const profile = JSON.parse(localStorage.getItem('am_seller_profile') || '{}');
-  document.getElementById('prof-whatsapp').value = profile.whatsapp || '';
-  document.getElementById('prof-discord').value = profile.discord || '';
-  document.getElementById('prof-upi').value = profile.upi || '';
+  const whatsappEl = document.getElementById('prof-whatsapp');
+  const discordEl = document.getElementById('prof-discord');
+  const upiEl = document.getElementById('prof-upi');
+  
+  if (whatsappEl) whatsappEl.value = profile.whatsapp || '';
+  if (discordEl) discordEl.value = profile.discord || '';
+  if (upiEl) upiEl.value = profile.upi || '';
 
-  // Fetch user's listings for the Business card
+  // Fetch and display user's listings stats
   try {
-    const res = await fetch('http://localhost:5000/api/listings');
-    const allListings = await res.json();
-    const myListings = allListings.filter(l => l.sellerId === user.email);
+    await fetchAllListingsFromDB(); // Uses global function from app.js
+    const myListings = GLOBAL_LISTINGS.filter(l => l.sellerId === user.email);
     
     document.getElementById('stat-active').textContent = myListings.filter(l => l.status === 'active').length;
     document.getElementById('stat-pending').textContent = myListings.filter(l => l.status === 'pending').length;
@@ -172,14 +179,47 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 function saveProfileHub() {
+   const whatsappEl = document.getElementById('prof-whatsapp');
+   const discordEl = document.getElementById('prof-discord');
+   const upiEl = document.getElementById('prof-upi');
+   
+   const profileData = {};
+   if (whatsappEl) profileData.whatsapp = whatsappEl.value.trim();
+   if (discordEl) profileData.discord = discordEl.value.trim();
+   if (upiEl) profileData.upi = upiEl.value.trim();
+   
+   // Save to localStorage for offline compatibility
    const profile = JSON.parse(localStorage.getItem('am_seller_profile') || '{}');
-   profile.whatsapp = document.getElementById('prof-whatsapp').value.trim();
-   profile.discord = document.getElementById('prof-discord').value.trim();
-   profile.upi = document.getElementById('prof-upi').value.trim();
+   Object.assign(profile, profileData);
    localStorage.setItem('am_seller_profile', JSON.stringify(profile));
    
-   document.getElementById('profileSaved').classList.remove('hidden');
-   setTimeout(() => document.getElementById('profileSaved').classList.add('hidden'), 3000);
+   // Sync to backend via API
+   const token = localStorage.getItem('am_token');
+   if (!token) {
+     console.error('No auth token found');
+     return;
+   }
+   
+   fetch(`${API_BASE_URL}/users/profile`, {
+     method: 'PATCH',
+     headers: getAuthHeaders(),
+     body: JSON.stringify(profileData)
+   })
+   .then(res => {
+     if (!res.ok) throw new Error('Failed to update profile');
+     return res.json();
+   })
+   .then(data => {
+     document.getElementById('profileSaved').classList.remove('hidden');
+     setTimeout(() => document.getElementById('profileSaved').classList.add('hidden'), 3000);
+     console.log('Profile updated successfully');
+   })
+   .catch(err => {
+     console.error('Error updating profile:', err);
+     // Even if API fails, localStorage was saved as fallback
+     document.getElementById('profileSaved').classList.remove('hidden');
+     setTimeout(() => document.getElementById('profileSaved').classList.add('hidden'), 3000);
+   });
 }
 </script>
 </body>

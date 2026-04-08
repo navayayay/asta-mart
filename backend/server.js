@@ -1,55 +1,138 @@
+require('dotenv').config();
+
+// --- ENVIRONMENT VARIABLE VALIDATION ---
+const REQUIRED_ENV_VARS = ['MONGODB_URI', 'JWT_SECRET', 'ADMIN_SECRET'];
+const OPTIONAL_ENV_VARS = ['EMAIL_USER', 'EMAIL_PASS']; // Optional for development
+REQUIRED_ENV_VARS.forEach(key => {
+  if (!process.env[key]) {
+    console.error(`❌ FATAL: Missing required environment variable: ${key}`);
+    process.exit(1);
+  }
+});
+
 const express = require('express');
+const fs = require('fs');
+const nodemailer = require('nodemailer');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const axios = require('axios');
 const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
+const { body, validationResult } = require('express-validator');
 const riotAuth = require('./riotAuth');
+const { User, Listing, Vault, Order, OTP, Transaction } = require('./models'); // Import all schemas
 const valorantSync = require('./jobs/valorantSync'); // Start Valorant daily sync on server boot
 
 const app = express();
-app.use(express.json({ limit: '50mb' }));
-app.use(cors());
+app.use(express.json({ limit: '1mb' })); // DoS protection: safe default limit for JSON payloads
+
+// --- SECURITY HEADERS ---
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "https://cdnjs.cloudflare.com", "https://fonts.googleapis.com", "https://unpkg.com"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      imgSrc: ["'self'", "data:", "https://media.valorant-api.com", "https://valorant-api.com"],
+      connectSrc: ["'self'", "http://localhost:5000"],
+    }
+  }
+}));
+
+// --- CORS CONFIGURATION ---
+const corsOrigins = [
+  'http://localhost:5500',
+  'http://localhost:5501',
+  'http://127.0.0.1:5500',
+  'http://127.0.0.1:5501',
+  'http://localhost:15500',
+  'http://127.0.0.1:15500',
+  process.env.FRONTEND_URL || 'http://localhost:5500'
+];
+app.use(cors({
+  origin: corsOrigins,
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Admin-Token'],
+  credentials: true
+}));
+
+console.log('✅ CORS Origins:', corsOrigins);
+
+// --- RATE LIMITING ---
+const otpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5,
+  message: { error: 'Too many OTP requests. Please wait 15 minutes.' },
+  standardHeaders: false,
+  legacyHeaders: false
+});
+
+const verifyLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10,
+  message: { error: 'Too many verification attempts. Please wait 15 minutes.' },
+  standardHeaders: false,
+  legacyHeaders: false
+});
+
+// --- EMAIL CONFIGURATION (Optional for development) ---
+let transporter = null;
+const emailConfigured = process.env.EMAIL_USER && process.env.EMAIL_PASS && 
+                        process.env.EMAIL_USER !== 'your-email@gmail.com' &&
+                        process.env.EMAIL_PASS !== 'your-app-password';
+
+if (emailConfigured) {
+  transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS
+    }
+  });
+  console.log('✅ [EMAIL] Email service configured and ready');
+} else {
+  console.log('⚠️  [EMAIL] Email service not configured. OTPs will be logged to console only.');
+}
+
+// --- ADMIN AUTHENTICATION MIDDLEWARE ---
+const ADMIN_SECRET = process.env.ADMIN_SECRET || 'default-secret';
+function adminAuth(req, res, next) {
+  const token = req.headers['x-admin-token'];
+  if (!token || token !== ADMIN_SECRET) {
+    return res.status(401).json({ error: 'Unauthorized: Invalid admin token' });
+  }
+  next();
+}
+
+// --- USER AUTHENTICATION MIDDLEWARE (JWT-based) ---
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+
+function requireAuth(req, res, next) {
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.split(' ')[1];
+  
+  if (!token) {
+    return res.status(401).json({ error: 'Unauthorized: Please log in' });
+  }
+  
+  try {
+    req.user = jwt.verify(token, JWT_SECRET);
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: 'Invalid or expired token' });
+  }
+}
 
 // --- MONGODB CONNECTION ---
-mongoose.connect('mongodb://127.0.0.1:27017/astamart')
+mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log('✅ Connected to MongoDB'))
   .catch(err => console.error('❌ MongoDB Connection Error:', err));
 
-// --- SCHEMAS ---
-const userSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  email: { type: String, required: true, unique: true },
-  joinedAt: { type: Date, default: Date.now }
-});
-const User = mongoose.model('User', userSchema);
-
-const listingSchema = new mongoose.Schema({
-  sellerId: String, sellerName: String, sellerPhone: String, sellerDiscord: String,
-  title: String, price: Number, emailAccess: Boolean, banHistory: Boolean,
-  status: { type: String, default: 'pending' }, 
-  region: String, rank: String, peakRank: String, level: Number, skinCount: Number, 
-  skinTags: [String], battlepassTags: [String], agents: [String], agentsCount: Number, 
-  vpBalance: Number, bpCompleted: Number, limited: Boolean, limitedDetail: String, 
-  images: [String], tags: [String], aiSummary: String, createdAt: { type: Date, default: Date.now }
-});
-const Listing = mongoose.model('Listing', listingSchema);
-
-const vaultSchema = new mongoose.Schema({
-  ownerEmail: { type: String, required: true },
-  slug: { type: String, required: true, unique: true },
-  accountData: { type: Object, required: true },
-  createdAt: { type: Date, default: Date.now },
-  expiresAt: { type: Date, expires: '7d', default: () => new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) }
-});
-const Vault = mongoose.model('Vault', vaultSchema);
-
-const orderSchema = new mongoose.Schema({
-    sellerName: String, sellerPhone: String, sellerDiscord: String, title: String,
-    skins: [String], price: Number, transactionId: String, 
-    status: { type: String, default: 'pending' }, 
-    createdAt: { type: Date, default: Date.now }
-});
-const Order = mongoose.model('Order', orderSchema);
+// --- SCHEMAS (Imported from models.js) ---
+// All Mongoose schemas are now centralized in models.js
+// Models: User, Listing, Vault, Order, OTP, Transaction
 
 // --- BROWSER DISGUISE HEADERS FOR CLOUDFLARE ---
 const valApiHeaders = {
@@ -59,12 +142,31 @@ const valApiHeaders = {
     }
 };
 
-// 🟢 THE SMART CACHE: Downloads the 30MB file ONCE and remembers it forever.
+// 🟢 THE SMART CACHE: Downloads the 30MB file ONCE and remembers it forever (persists to disk)
+const CACHE_FILE = './skin_catalog_cache.json';
 let masterSkinCatalog = null;
+
 async function getCachedCatalog() {
-    if (masterSkinCatalog) return masterSkinCatalog; 
+    // Check in-memory cache first (fastest)
+    if (masterSkinCatalog) return masterSkinCatalog;
     
-    console.log(">> [SERVER] Downloading Master Skin Catalog (This only happens once)...");
+    // Try loading from disk cache
+    if (fs.existsSync(CACHE_FILE)) {
+        try {
+            const cached = JSON.parse(fs.readFileSync(CACHE_FILE, 'utf8'));
+            // Check if cache is less than 24 hours old
+            if (Date.now() - cached.timestamp < 24 * 60 * 60 * 1000) {
+                masterSkinCatalog = cached.data;
+                console.log(`>> [SERVER] ✅ Loaded Catalog from Disk Cache (${masterSkinCatalog.length} items)`);
+                return masterSkinCatalog;
+            }
+        } catch (parseErr) {
+            console.warn(`⚠️  [SERVER] Disk cache corrupted, will refresh:`, parseErr.message);
+        }
+    }
+    
+    // Download fresh catalog from Valorant API
+    console.log(">> [SERVER] Downloading Master Skin Catalog (This happens once per day or after cache expiry)...");
     try {
         const response = await fetch('https://valorant-api.com/v1/weapons/skins', {
             headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/124.0.0.0 Safari/537.36' }
@@ -73,8 +175,21 @@ async function getCachedCatalog() {
         if (!response.ok) throw new Error(`HTTP Error ${response.status}`);
         
         const data = await response.json();
-        masterSkinCatalog = data.data; 
-        console.log(`>> [SERVER] ✅ Catalog Cached Successfully! (${masterSkinCatalog.length} items)`);
+        masterSkinCatalog = data.data;
+        
+        // Persist to disk for recovery after restart
+        try {
+            fs.writeFileSync(CACHE_FILE, JSON.stringify({
+                data: masterSkinCatalog,
+                timestamp: Date.now()
+            }, null, 2));
+            console.log(`>> [SERVER] ✅ Catalog Downloaded & Saved to Disk (${masterSkinCatalog.length} items)`);
+        } catch (writeErr) {
+            console.error(`⚠️  [SERVER] Failed to save cache to disk:`, writeErr.message);
+            // Still return the data even if disk write failed
+            console.log(`>> [SERVER] ✅ Catalog Downloaded (in-memory only, disk write failed)`);
+        }
+        
         return masterSkinCatalog;
     } catch (e) {
         console.error("❌ [SERVER] Valorant-API blocked the request:", e.message);
@@ -83,40 +198,68 @@ async function getCachedCatalog() {
 }
 
 // --- AUTH / OTP ROUTES ---
-const otpStore = new Map(); // Temporarily stores OTPs in server memory
-
-app.post('/api/auth/send-otp', async (req, res) => {
+app.post('/api/auth/send-otp', otpLimiter, async (req, res) => {
     try {
         const { email, type } = req.body;
         if (!email) return res.status(400).json({ error: 'Email is required' });
 
+        // Delete any old OTP for this email
+        await OTP.deleteMany({ email });
+
         // Generate a 6-digit random OTP
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         
-        // Save it to memory tied to this email
-        otpStore.set(email, otp);
+        // Save to MongoDB with TTL (auto-expires in 5 minutes)
+        const otpDoc = new OTP({ email, code: otp });
+        await otpDoc.save();
 
-        // 🟢 LOG THE OTP TO THE TERMINAL SO YOU CAN SEE IT DURING DEV
-        console.log(`\n🔑 [AUTH] OTP for ${email} is: ${otp}\n`);
+        // Send OTP via email if configured
+        if (emailConfigured && transporter) {
+            try {
+                await transporter.sendMail({
+                    from: '"Asta Mart" <no-reply@astamart.com>',
+                    to: email,
+                    subject: 'Your Asta Mart Verification Code',
+                    html: `
+                        <h2>Asta Mart Verification Code</h2>
+                        <p>Your verification code is:</p>
+                        <h1 style="color: #FF4655; font-family: monospace; letter-spacing: 3px;">${otp}</h1>
+                        <p>This code expires in <strong>5 minutes</strong>.</p>
+                        <p>If you didn't request this code, please ignore this email.</p>
+                        <hr>
+                        <p style="font-size: 12px; color: #666;">Asta Mart Valorant Marketplace</p>
+                    `
+                });
+                console.log(`✅ [EMAIL] OTP sent to ${email}`);
+            } catch (emailErr) {
+                console.error(`❌ [EMAIL] Failed to send OTP to ${email}:`, emailErr.message);
+                return res.status(500).json({ error: 'Failed to send OTP. Please try again.' });
+            }
+        } else {
+            // Development mode: log OTP to console
+            console.log(`\n🔑 [AUTH - DEV MODE] OTP for ${email} is: ${otp}\n`);
+        }
 
-        res.json({ success: true, message: 'OTP sent successfully' });
+        res.json({ success: true, message: 'OTP sent to your email' });
     } catch (err) {
-        console.error("❌ Auth Error:", err.message);
-        res.status(500).json({ error: err.message });
+        console.error('❌ Auth Error:', err);
+        res.status(500).json({ error: 'An unexpected error occurred. Please try again.' });
     }
 });
 
-app.post('/api/auth/verify-otp', async (req, res) => {
+app.post('/api/auth/verify-otp', verifyLimiter, async (req, res) => {
     try {
         const { email, otp, name } = req.body;
-        
-        // Check if OTP matches what we saved (or allow a universal bypass '123456' for easy testing)
-        if (otpStore.get(email) !== otp && otp !== '123456') {
+        if (!email || !otp) return res.status(400).json({ error: 'Email and OTP are required' });
+
+        // Query MongoDB for the OTP (TTL will automatically delete expired ones)
+        const otpDoc = await OTP.findOne({ email, code: otp });
+        if (!otpDoc) {
             return res.status(400).json({ error: 'Invalid or expired OTP' });
         }
 
-        // OTP is correct, remove it from memory for security
-        otpStore.delete(email);
+        // OTP is valid, delete it immediately for security
+        await OTP.deleteOne({ _id: otpDoc._id });
 
         // Find the user in the database, or create a new one if they are signing up
         let user = await User.findOne({ email });
@@ -125,29 +268,112 @@ app.post('/api/auth/verify-otp', async (req, res) => {
             await user.save();
         }
 
-        res.json({ success: true, user: { email: user.email, name: user.name } });
+        // Issue JWT token (valid for 7 days)
+        const token = jwt.sign({ email: user.email, name: user.name }, JWT_SECRET, { expiresIn: '7d' });
+
+        res.json({ success: true, token, user: { email: user.email, name: user.name } });
     } catch (err) {
-        console.error("❌ Verify Error:", err.message);
-        res.status(500).json({ error: err.message });
+        console.error('❌ Verify Error:', err);
+        res.status(500).json({ error: 'Verification failed. Please try again.' });
     }
 });
+
+// --- USER PROFILE ROUTE ---
+app.patch('/api/users/profile', requireAuth, [
+  body('discord')
+    .optional()
+    .trim()
+    .isString()
+    .isLength({ min: 2, max: 32 })
+    .withMessage('Discord handle must be 2-32 characters')
+    .matches(/^[a-zA-Z0-9._-]+$/)
+    .withMessage('Discord handle can only contain letters, numbers, dots, underscores, and hyphens'),
+  body('whatsapp')
+    .optional()
+    .trim()
+    .isString()
+    .matches(/^\+?[1-9]\d{1,14}$/)
+    .withMessage('WhatsApp must be a valid phone number (10-15 digits, optionally with + prefix)'),
+  body('upi')
+    .optional()
+    .trim()
+    .isString()
+    .isLength({ max: 60 })
+    .withMessage('UPI ID must be 60 characters or less')
+    .matches(/^[a-zA-Z0-9._-]+@[a-zA-Z]+$/)
+    .withMessage('UPI must be in format: username@bankname'),
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    // Extract validated fields
+    const { discord, whatsapp, upi } = req.body;
+    const updateData = {};
+    
+    if (discord !== undefined) updateData.discord = discord;
+    if (whatsapp !== undefined) updateData.whatsapp = whatsapp;
+    if (upi !== undefined) updateData.upi = upi;
+
+    // Update user in MongoDB
+    const user = await User.findOneAndUpdate(
+      { email: req.user.email },
+      updateData,
+      { new: true, runValidators: true }
+    );
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    res.json({ success: true, message: 'Profile updated successfully', user: { 
+      email: user.email, 
+      name: user.name,
+      discord: user.discord,
+      whatsapp: user.whatsapp,
+      upi: user.upi
+    }});
+  } catch (err) {
+    console.error('❌ Profile Update Error:', err);
+    res.status(500).json({ error: 'Failed to update profile. Please try again.' });
+  }
+});
+
+// --- TOKEN VALIDATION HELPER ---
+function validateAccessToken(token) {
+    if (!token || typeof token !== 'string') return false;
+    // Validate JWT format: three Base64url-encoded parts separated by dots
+    const tokenRegex = /^[A-Za-z0-9\-._~+/]+=*\.[A-Za-z0-9\-._~+/]+=*\.[A-Za-z0-9\-._~+/]+=*$/;
+    return tokenRegex.test(token) && token.length > 50 && token.length < 5000;
+}
 
 
 // --- RIOT SYNC ROUTE ---
 app.post('/api/riot/sync-url', async (req, res) => {
     try {
         const { redirectUrl } = req.body;
+        if (!redirectUrl || typeof redirectUrl !== 'string') {
+            return res.status(400).json({ error: 'Invalid request format.' });
+        }
+
         const accessToken = (redirectUrl.match(/access_token=([^&|#\s]+)/) || [])[1];
         const idToken = (redirectUrl.match(/id_token=([^&|#\s]+)/) || [])[1];
-        if (!accessToken) return res.status(400).json({ error: 'Access Token missing.' });
+        
+        // Validate token format BEFORE using it
+        if (!accessToken || !validateAccessToken(accessToken)) {
+            return res.status(400).json({ error: 'Invalid or malformed access token.' });
+        }
 
         const catalog = await getCachedCatalog(); 
         const accountData = await riotAuth.syncFromToken(accessToken, idToken || "", catalog);
         
         res.json(accountData);
     } catch (err) { 
-        console.error("❌ Route Error:", err.message);
-        res.status(500).json({ error: err.message }); 
+        // Don't expose error details that might leak token information
+        console.error("❌ Riot Sync Error: [token validation or API error]");
+        res.status(500).json({ error: 'Failed to sync account. Please try again.' }); 
     }
 });
 
@@ -155,12 +381,20 @@ app.post('/api/riot/sync-url', async (req, res) => {
 app.post('/api/vault/sync', async (req, res) => {
     try {
         const { redirectUrl, ownerEmail } = req.body;
+        if (!redirectUrl || typeof redirectUrl !== 'string') {
+            return res.status(400).json({ error: 'Invalid request format.' });
+        }
+
         const currentCount = await Vault.countDocuments({ ownerEmail });
         if (currentCount >= 10) return res.status(400).json({ error: 'Vault slot limit reached (10/10).' });
 
         const accessToken = (redirectUrl.match(/access_token=([^&|#\s]+)/) || [])[1];
         const idToken = (redirectUrl.match(/id_token=([^&|#\s]+)/) || [])[1];
-        if (!accessToken) return res.status(400).json({ error: 'Access Token missing.' });
+        
+        // Validate token format BEFORE using it
+        if (!accessToken || !validateAccessToken(accessToken)) {
+            return res.status(400).json({ error: 'Invalid or malformed access token.' });
+        }
 
         const catalog = await getCachedCatalog(); 
         const accountData = await riotAuth.syncFromToken(accessToken, idToken || "", catalog);
@@ -171,14 +405,18 @@ app.post('/api/vault/sync', async (req, res) => {
         
         res.status(201).json(newVault);
     } catch (err) { 
-        console.error("❌ Vault Sync Error:", err.message);
-        res.status(500).json({ error: err.message }); 
+        // Don't expose error details that might leak token information
+        console.error("❌ Vault Sync Error: [token validation or API error]");
+        res.status(500).json({ error: 'Failed to sync vault. Please try again.' }); 
     }
 });
 
 app.get('/api/vault/user/:email', async (req, res) => {
     try { res.json(await Vault.find({ ownerEmail: req.params.email }).sort({ createdAt: -1 })); } 
-    catch (err) { res.status(500).json({ error: err.message }); }
+    catch (err) { 
+      console.error('❌ Vault User Fetch Error:', err);
+      res.status(500).json({ error: 'An unexpected error occurred. Please try again.' }); 
+    }
 });
 
 app.get('/api/vault/public/:slug', async (req, res) => {
@@ -186,45 +424,146 @@ app.get('/api/vault/public/:slug', async (req, res) => {
         const vaultItem = await Vault.findOne({ slug: req.params.slug });
         if (!vaultItem) return res.status(404).json({ error: 'Not found.' });
         res.json(vaultItem);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { 
+      console.error('❌ Vault Public Fetch Error:', err);
+      res.status(500).json({ error: 'An unexpected error occurred. Please try again.' }); 
+    }
 });
 
-app.delete('/api/vault/:id', async (req, res) => {
-    try { await Vault.findByIdAndDelete(req.params.id); res.json({ success: true }); } 
-    catch (err) { res.status(500).json({ error: err.message }); }
+app.delete('/api/vault/:id', requireAuth, async (req, res) => {
+    try {
+      const vault = await Vault.findById(req.params.id);
+      if (!vault) return res.status(404).json({ error: 'Vault not found' });
+      
+      // Check ownership - only the vault owner can delete
+      if (vault.ownerEmail !== req.user.email) {
+        return res.status(403).json({ error: 'Forbidden: You can only delete your own vaults' });
+      }
+      
+      await vault.deleteOne();
+      res.json({ success: true });
+    } 
+    catch (err) { 
+      console.error('❌ Vault Delete Error:', err);
+      res.status(500).json({ error: 'An unexpected error occurred. Please try again.' }); 
+    }
 });
 
 // --- LISTINGS API ---
 app.get('/api/listings', async (req, res) => {
   try {
     // Fetch all active listings with lean() for performance
-    const listings = await Listing.find({ status: 'active' }).lean().sort({ createdAt: -1 });
+    // Exclude sensitive contact fields from public endpoint
+    const listings = await Listing.find({ status: 'active' })
+      .lean()
+      .sort({ createdAt: -1 })
+      .select('-sellerPhone -sellerDiscord -sellerId');
 
-    // The frontend receives data that is perfectly formatted and ready to render
     res.json(listings);
   } catch (error) {
     res.status(500).json({ error: 'Server error fetching listings' });
   }
 });
 
-app.post('/api/listings', async (req, res) => {
-  try { 
-      req.body.status = 'pending'; 
-      const nl = new Listing(req.body); 
-      await nl.save(); 
-      res.status(201).json(nl); 
-  } 
-  catch (err) { res.status(500).json({ error: err.message }); }
+// --- REVEAL CONTACT ENDPOINT (Authenticated) ---
+app.post('/api/listings/:id/reveal', requireAuth, async (req, res) => {
+  try {
+    const listing = await Listing.findById(req.params.id)
+      .select('sellerPhone sellerDiscord sellerId sellerName');
+    if (!listing) return res.status(404).json({ error: 'Listing not found' });
+    
+    // Increment contactReveals counter
+    await Listing.findByIdAndUpdate(req.params.id, { $inc: { contactReveals: 1 } });
+    
+    res.json(listing);
+  } catch (err) {
+    console.error('❌ Reveal Contact Error:', err);
+    res.status(500).json({ error: 'An unexpected error occurred. Please try again.' });
+  }
 });
 
-app.delete('/api/listings/:id', async (req, res) => {
-    try { await Listing.findByIdAndDelete(req.params.id); res.json({ message: "Deleted" }); } 
-    catch (err) { res.status(500).json({ error: err.message }); }
+// --- INCREMENT VIEW COUNT ENDPOINT ---
+app.post('/api/listings/:id/view', async (req, res) => {
+  try {
+    await Listing.findByIdAndUpdate(req.params.id, { $inc: { views: 1 } });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('❌ View Count Error:', err);
+    res.status(500).json({ error: 'An unexpected error occurred. Please try again.' });
+  }
 });
 
-app.put('/api/listings/:id', async (req, res) => {
-    try { res.json(await Listing.findByIdAndUpdate(req.params.id, { status: 'sold' }, { new: true })); } 
-    catch (err) { res.status(500).json({ error: err.message }); }
+app.post('/api/listings', requireAuth, [
+  body('title').trim().notEmpty().isLength({ max: 200 }).withMessage('Title is required and must be 200 characters or less'),
+  body('price').isInt({ min: 1, max: 10000000 }).withMessage('Price must be an integer between 1 and 10,000,000'),
+  body('region').isIn(['AP', 'NA', 'EU', 'KR', 'LATAM', 'BR']).withMessage('Invalid region'),
+  body('rank').optional().trim().isString().isLength({ max: 50 }).withMessage('Rank must be 50 characters or less'),
+  body('level').optional().isInt({ min: 1, max: 999 }).withMessage('Level must be between 1 and 999'),
+  body('skinCount').optional().isInt({ min: 0 }).withMessage('Skin count must be a non-negative integer'),
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+    
+    // Only whitelist known safe fields - prevent mass assignment
+    const { title, price, region, rank, peakRank, level, skinCount, agentsCount,
+            emailAccess, banHistory, banDetail, limited, limitedDetail, vpBalance,
+            bpCompleted, skinTags, battlepassTags, agents, tags, aiSummary, images } = req.body;
+    
+    const nl = new Listing({
+      sellerId: req.user.email, // from auth middleware, not from body
+      sellerName: req.user.name,
+      title, price, region, rank, peakRank, level, skinCount, agentsCount,
+      emailAccess, banHistory, banDetail, limited, limitedDetail, vpBalance,
+      bpCompleted, skinTags, battlepassTags, agents, tags, aiSummary, images,
+      status: 'pending'
+    });
+    await nl.save();
+    res.status(201).json({ success: true, id: nl._id });
+  }
+  catch (err) { 
+    console.error('❌ Create Listing Error:', err);
+    res.status(500).json({ error: 'An unexpected error occurred. Please try again.' }); 
+  }
+});
+
+app.delete('/api/listings/:id', requireAuth, async (req, res) => {
+    try {
+      const listing = await Listing.findById(req.params.id);
+      if (!listing) return res.status(404).json({ error: 'Listing not found' });
+      
+      // Check ownership - only the seller can delete their listing
+      if (listing.sellerId !== req.user.email) {
+        return res.status(403).json({ error: 'Forbidden: You can only delete your own listings' });
+      }
+      
+      await listing.deleteOne();
+      res.json({ message: 'Deleted' });
+    } 
+    catch (err) { 
+      console.error('❌ Delete Listing Error:', err);
+      res.status(500).json({ error: 'An unexpected error occurred. Please try again.' }); 
+    }
+});
+
+app.put('/api/listings/:id', requireAuth, async (req, res) => {
+    try {
+      const listing = await Listing.findById(req.params.id);
+      if (!listing) return res.status(404).json({ error: 'Listing not found' });
+      
+      // Check ownership - only the seller can update their listing
+      if (listing.sellerId !== req.user.email) {
+        return res.status(403).json({ error: 'Forbidden: You can only update your own listings' });
+      }
+      
+      res.json(await Listing.findByIdAndUpdate(req.params.id, { status: 'sold' }, { new: true }));
+    } 
+    catch (err) { 
+      console.error('❌ Update Listing Error:', err);
+      res.status(500).json({ error: 'An unexpected error occurred. Please try again.' }); 
+    }
 });
 
 // --- ORDERS API ---
@@ -233,28 +572,50 @@ app.post('/api/orders/inventory-edit', async (req, res) => {
         const newOrder = new Order(req.body);
         await newOrder.save();
         res.json({ success: true });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { 
+      console.error('❌ Create Order Error:', err);
+      res.status(500).json({ error: 'An unexpected error occurred. Please try again.' }); 
+    }
 });
 
 // --- ADMIN ROUTES ---
-app.get('/api/admin/orders', async (req, res) => {
+app.get('/api/admin/orders', adminAuth, async (req, res) => {
     try { res.json(await Order.find().sort({ createdAt: -1 })); } 
-    catch (err) { res.status(500).json({ error: err.message }); }
+    catch (err) { 
+      console.error('❌ Admin Orders Fetch Error:', err);
+      res.status(500).json({ error: 'An unexpected error occurred. Please try again.' }); 
+    }
 });
 
-app.put('/api/admin/orders/:id/complete', async (req, res) => {
+app.put('/api/admin/orders/:id/complete', adminAuth, async (req, res) => {
     try { 
         await Order.findByIdAndUpdate(req.params.id, { status: 'completed' });
         res.json({ success: true }); 
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { 
+      console.error('❌ Admin Order Complete Error:', err);
+      res.status(500).json({ error: 'An unexpected error occurred. Please try again.' }); 
+    }
 });
 
-app.put('/api/admin/listings/:id/approve', async (req, res) => {
+app.put('/api/admin/listings/:id/approve', adminAuth, async (req, res) => {
     try { 
         await Listing.findByIdAndUpdate(req.params.id, { status: 'active' });
         res.json({ success: true }); 
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { 
+      console.error('❌ Admin Listing Approve Error:', err);
+      res.status(500).json({ error: 'An unexpected error occurred. Please try again.' }); 
+    }
 });
 
-const PORT = 5000;
+app.delete('/api/admin/listings/:id', adminAuth, async (req, res) => {
+    try {
+        await Listing.findByIdAndDelete(req.params.id);
+        res.json({ success: true });
+    } catch (err) { 
+      console.error('❌ Admin Listing Delete Error:', err);
+      res.status(500).json({ error: 'An unexpected error occurred. Please try again.' }); 
+    }
+});
+
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`🚀 Asta Mart Backend running on http://localhost:${PORT}`));

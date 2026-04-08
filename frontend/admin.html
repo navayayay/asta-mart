@@ -42,9 +42,9 @@
 <div class="container dashboard-grid">
   <!-- SIDEBAR -->
   <aside class="admin-sidebar">
-    <button class="admin-tab active" onclick="switchAdminTab('pending')">⏳ Pending Approvals</button>
-    <button class="admin-tab" onclick="switchAdminTab('orders')">📦 Edit Orders</button>
-    <button class="admin-tab" onclick="switchAdminTab('listings')">🛑 Moderation (Active)</button>
+    <button class="admin-tab active" onclick="switchAdminTab(this, 'pending')">⏳ Pending Approvals</button>
+    <button class="admin-tab" onclick="switchAdminTab(this, 'orders')">📦 Edit Orders</button>
+    <button class="admin-tab" onclick="switchAdminTab(this, 'listings')">🛑 Moderation (Active)</button>
   </aside>
 
   <!-- MAIN CONTENT -->
@@ -107,27 +107,52 @@
 </div>
 
 <script>
-const MASTER_PASS = "astaradiant";
-if (sessionStorage.getItem('admin_auth') !== "true") {
-    const attempt = prompt("SECURE AREA. Enter Admin Passcode:");
-    if (attempt === MASTER_PASS) { sessionStorage.setItem('admin_auth', "true"); } 
-    else { alert("Access Denied."); window.location.href = "index.html"; }
+let adminToken = null;
+
+// ===================== XSS SANITIZATION =====================
+function sanitize(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    loadAllAdminData();
+// Prompt for admin token on page load
+window.addEventListener('DOMContentLoaded', () => {
+  if (!sessionStorage.getItem('adminToken')) {
+    const token = prompt('🔐 Enter Admin Secret Key:');
+    if (!token) {
+      alert('Access Denied.');
+      window.location.href = 'index.html';
+      return;
+    }
+    sessionStorage.setItem('adminToken', token);
+  }
+  adminToken = sessionStorage.getItem('adminToken');
+  loadAllAdminData();
 });
 
-function switchAdminTab(tab) {
+function getAdminHeaders() {
+  return {
+    'Content-Type': 'application/json',
+    'x-admin-token': adminToken
+  };
+}
+
+function switchAdminTab(button, tab) {
     document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('main > div').forEach(d => d.classList.add('hidden'));
-    event.currentTarget.classList.add('active');
+    button.classList.add('active');
     document.getElementById('tab-' + tab).classList.remove('hidden');
 }
 
 async function loadAllAdminData() {
     try {
-        const resListings = await fetch('http://localhost:5000/api/listings');
+        const headers = getAdminHeaders();
+        const resListings = await fetch(`${API_BASE_URL}/listings`);
         const allListings = await resListings.json();
         
         const pending = allListings.filter(l => l.status === 'pending');
@@ -138,8 +163,8 @@ async function loadAllAdminData() {
         if(pending.length === 0) pendingBody.innerHTML = '<tr><td colspan="4" style="text-align:center;">No pending approvals.</td></tr>';
         else pendingBody.innerHTML = pending.map(l => `
             <tr>
-                <td><a href="listing.html?id=${l._id}" target="_blank" style="color:var(--accent-cyan); text-decoration:none;"><strong>${l.title}</strong></a><br><span style="font-size:12px; color:var(--white-dim)">${l.skinCount} Skins | ${l.region}</span></td>
-                <td>${l.sellerName}<br><span style="font-size:12px; color:var(--white-dim)">${l.sellerId}</span></td>
+                <td><a href="listing.html?id=${l._id}" target="_blank" style="color:var(--accent-cyan); text-decoration:none;"><strong>${sanitize(l.title)}</strong></a><br><span style="font-size:12px; color:var(--white-dim)">${l.skinCount} Skins | ${sanitize(l.region)}</span></td>
+                <td>${sanitize(l.sellerName)}<br><span style="font-size:12px; color:var(--white-dim)">${sanitize(l.sellerId)}</span></td>
                 <td style="color: var(--red); font-weight: bold;">₹${l.price}</td>
                 <td>
                     <button class="btn-primary sm" style="background:var(--accent-green); color:#000; border:none; padding:6px 10px; font-size:11px; margin-right:5px;" onclick="approveListing('${l._id}')">✅ Approve</button>
@@ -152,8 +177,8 @@ async function loadAllAdminData() {
         const listingsBody = document.getElementById('listingsTableBody');
         listingsBody.innerHTML = active.map(l => `
             <tr>
-                <td><a href="listing.html?id=${l._id}" target="_blank" style="color: #fff; text-decoration: none;"><strong>${l.title}</strong></a></td>
-                <td style="color: var(--white-dim);">${l.sellerId}</td>
+                <td><a href="listing.html?id=${l._id}" target="_blank" style="color: #fff; text-decoration: none;"><strong>${sanitize(l.title)}</strong></a></td>
+                <td style="color: var(--white-dim);">${sanitize(l.sellerId)}</td>
                 <td style="color: var(--red); font-weight: bold;">₹${l.price}</td>
                 <td><span style="color: ${l.status === 'sold' ? 'var(--white-dim)' : 'var(--accent-green)'}">${l.status.toUpperCase()}</span></td>
                 <td><button class="btn-danger sm" style="padding: 6px 10px; font-size: 11px;" onclick="banListing('${l._id}')">🗑️ Delete</button></td>
@@ -161,7 +186,9 @@ async function loadAllAdminData() {
         `).join('');
 
         // Render Orders
-        const resOrders = await fetch('http://localhost:5000/api/admin/orders');
+        const resOrders = await fetch(`${API_BASE_URL}/admin/orders`, {
+            headers: getAdminHeaders()
+        });
         const orders = await resOrders.json();
         const ordersBody = document.getElementById('ordersTableBody');
         ordersBody.innerHTML = orders.map(o => {
@@ -169,9 +196,9 @@ async function loadAllAdminData() {
             return `
             <tr>
                 <td style="color: var(--white-dim);">${date}</td>
-                <td><strong>${o.sellerName}</strong><br><span style="font-size:12px; color:var(--white-dim)">📱 ${o.sellerPhone || 'N/A'}</span></td>
-                <td><div style="font-weight: bold; width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${o.title}</div></td>
-                <td><span class="utr-code">${o.transactionId || 'PENDING'}</span><br><span style="font-size:12px; color:var(--red); font-weight:bold;">₹${o.price}</span></td>
+                <td><strong>${sanitize(o.sellerName)}</strong><br><span style="font-size:12px; color:var(--white-dim)">📱 ${sanitize(o.sellerPhone || 'N/A')}</span></td>
+                <td><div style="font-weight: bold; width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${sanitize(o.title)}</div></td>
+                <td><span class="utr-code">${sanitize(o.transactionId || 'PENDING')}</span><br><span style="font-size:12px; color:var(--red); font-weight:bold;">₹${o.price}</span></td>
                 <td><span class="status-badge ${o.status === 'completed' ? 'status-completed' : 'status-pending'}">${o.status}</span></td>
                 <td>
                     ${o.status === 'pending' ? `<button class="btn-ghost sm" style="padding: 6px 10px; font-size:11px;" onclick="markOrderCompleted('${o._id}')">✅ Mark Done</button>` : `<span style="color: var(--white-dim); font-size: 12px;">Delivered</span>`}
@@ -186,25 +213,55 @@ async function loadAllAdminData() {
 async function approveListing(id) {
     if (!confirm("Approve this listing and make it public on the marketplace?")) return;
     try {
-        await fetch(`http://localhost:5000/api/admin/listings/${id}/approve`, { method: 'PUT' });
+        const response = await fetch(`${API_BASE_URL}/admin/listings/${id}/approve`, { 
+            method: 'PUT',
+            headers: getAdminHeaders()
+        });
+        if (response.status === 401) {
+            alert('Session expired. Please reload and re-enter your admin secret.');
+            sessionStorage.removeItem('adminToken');
+            location.reload();
+            return;
+        }
+        if (!response.ok) throw new Error(await response.json().then(r => r.error));
         loadAllAdminData();
-    } catch (err) { alert("Error approving listing."); }
+    } catch (err) { alert("Error approving listing: " + err.message); }
 }
 
 async function banListing(id) {
     if (!confirm("Delete this listing permanently?")) return;
     try {
-        await fetch(`http://localhost:5000/api/listings/${id}`, { method: 'DELETE' });
+        const response = await fetch(`${API_BASE_URL}/admin/listings/${id}`, { 
+            method: 'DELETE',
+            headers: getAdminHeaders()
+        });
+        if (response.status === 401) {
+            alert('Session expired. Please reload and re-enter your admin secret.');
+            sessionStorage.removeItem('adminToken');
+            location.reload();
+            return;
+        }
+        if (!response.ok) throw new Error(await response.json().then(r => r.error));
         loadAllAdminData();
-    } catch (err) { alert("Error deleting listing."); }
+    } catch (err) { alert("Error deleting listing: " + err.message); }
 }
 
 async function markOrderCompleted(id) {
     if (!confirm("Mark this edit as Delivered?")) return;
     try {
-        await fetch(`http://localhost:5000/api/admin/orders/${id}/complete`, { method: 'PUT' });
+        const response = await fetch(`${API_BASE_URL}/admin/orders/${id}/complete`, { 
+            method: 'PUT',
+            headers: getAdminHeaders()
+        });
+        if (response.status === 401) {
+            alert('Session expired. Please reload and re-enter your admin secret.');
+            sessionStorage.removeItem('adminToken');
+            location.reload();
+            return;
+        }
+        if (!response.ok) throw new Error(await response.json().then(r => r.error));
         loadAllAdminData();
-    } catch (err) { alert("Error updating order."); }
+    } catch (err) { alert("Error updating order: " + err.message); }
 }
 </script>
 </body>
