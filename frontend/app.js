@@ -18,11 +18,31 @@ function sanitize(str) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
+}
+
+// H9: Validate icon URLs against allowlist to prevent SSRF and tracking pixels
+function isSafeIconUrl(url) {
+  if (!url || typeof url !== 'string') return false;
+  try {
+    const u = new URL(url);
+    // Only allow trusted Valorant API domains
+    return ['media.valorant-api.com', 'valorant-api.com'].includes(u.hostname);
+  } catch {
+    return false;
+  }
 } 
 
 // ===================== INIT =====================
 document.addEventListener('DOMContentLoaded', async () => {
-  await fetchAllListingsFromDB();
+  // M2: Only fetch listings if page actually needs them
+  const needsListings = document.getElementById('listingsGrid') ||
+    document.getElementById('homeCarousel') ||
+    document.getElementById('listingDetail') ||
+    document.getElementById('savedGrid') ||
+    document.getElementById('compareTable') ||
+    document.getElementById('myListingsGrid');
+
+  if (needsListings) await fetchAllListingsFromDB();
   
   initAuth();
   updateCartBadge(); 
@@ -55,7 +75,8 @@ async function fetchAllListingsFromDB() {
     GLOBAL_LISTINGS = await response.json();
   } catch (error) {
     console.error('Failed to fetch listings from backend:', error);
-    GLOBAL_LISTINGS = typeof SAMPLE_LISTINGS !== 'undefined' ? SAMPLE_LISTINGS : [];
+    // M1: Show empty state instead of fake sample data
+    GLOBAL_LISTINGS = [];
   }
 }
 
@@ -73,6 +94,15 @@ function updateStatCount() {
 }
 
 // ===================== FLAWLESS GSAP SCROLL SYNC =====================
+// L5: GSAP Race Condition Guards & Documentation
+// The following guards are in place to prevent race conditions if GSAP/ScrollTrigger
+// libraries load asynchronously or if the video element is not yet in the DOM:
+// 1. Video element check: Ensures #scrubVideo exists before attempting initialization
+// 2. GSAP & ScrollTrigger availability check: Verifies both libraries are globally available
+// 3. Video readyState check: Ensures video metadata is loaded before setting currentTime
+// 4. Duration fallback: Uses 5-second fallback if duration is unavailable
+// 5. Window load event: Consider wrapping in window addEventListener('load', ...) for deferred init
+// These guards prevent console errors and ensure graceful degradation if assets fail to load.
 function initVideoScrollEffects() {
   const video = document.getElementById('scrubVideo');
   if (!video) {
@@ -361,9 +391,11 @@ function generateSkinsGrid(skinTags) {
           // It blindly trusts the backend's 'displayTier'. If missing, falls back to premium.
           const tierClass = skinObj.displayTier || 'tier-premium'; 
           
-          return `<div class="skin-card ${tierClass}">
-                    <img src="${skinObj.icon}" alt="${skinObj.name}" onerror="this.src='fallback-image-url.png'">
-                    <div class="skin-name">${skinObj.name}</div>
+          // C2: Sanitize fields + H9: Validate icon URL against allowlist
+          const safeIcon = isSafeIconUrl(skinObj.icon) ? sanitize(skinObj.icon) : '';
+          return `<div class="skin-card ${sanitize(tierClass)}">
+                    <img src="${safeIcon}" alt="${sanitize(skinObj.name)}" onerror="this.src='fallback-image-url.png'">
+                    <div class="skin-name">${sanitize(skinObj.name)}</div>
                   </div>`;
       } catch(e) {
           // Graceful fallback if data is corrupted
@@ -380,9 +412,11 @@ function generateAgentsGrid(agents) {
   return agents.map(tagStr => {
        try {
           const agent = typeof tagStr === 'string' ? JSON.parse(tagStr) : tagStr;
-          return `<div class="skin-card tier-battlepass"><img src="${agent.icon}" alt="${agent.name}" style="height: 50px; margin-bottom: 10px;"><div class="skin-name">${agent.name}</div></div>`;
+          // C2: Sanitize fields + H9: Validate icon URL against allowlist
+          const safeIcon = isSafeIconUrl(agent.icon) ? sanitize(agent.icon) : '';
+          return `<div class="skin-card tier-battlepass"><img src="${safeIcon}" alt="${sanitize(agent.name)}" style="height: 50px; margin-bottom: 10px;"><div class="skin-name">${sanitize(agent.name)}</div></div>`;
        } catch(e) {
-           return `<div class="skin-card tier-battlepass"><div class="skin-icon-placeholder">🕵️</div><div class="skin-name">${tagStr}</div></div>`;
+           return `<div class="skin-card tier-battlepass"><div class="skin-icon-placeholder">🕵️</div><div class="skin-name">${sanitize(tagStr)}</div></div>`;
        }
   }).join('');
 }

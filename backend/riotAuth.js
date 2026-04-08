@@ -5,6 +5,16 @@ const axios = require('axios');
 // - Request bodies containing tokens must NEVER be logged
 // - Tokens are validated before any Riot API calls
 // - Error messages must NOT expose partial token values
+
+// L7: JWT Verification Limitation Documentation
+// Riot API tokens cannot be cryptographically verified server-side because:
+// 1. Riot does not publish public keys for JWT signature verification
+// 2. Token validation must be done via Riot's /entitlements endpoint API call (see syncFromToken)
+// 3. This is a known limitation - signature verification is NOT possible
+// 4. Alternative: Trust tokens only from HTTPS iframe redirects from official Riot auth
+// 5. Current implementation validates token format, makes API calls, and validates responses
+// 6. For future audits: Consider implementing token expiration tracking and refresh logic
+
 const VP_UUID = '85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741';
 const RP_UUID = 'e59aa87c-4cbf-517a-5983-6e81511be9b7';
 const SKIN_ITEM_TYPE_UUID = 'e7c63390-eda7-46e0-bb7a-a6abdacd2433';

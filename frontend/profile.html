@@ -4,6 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Profile Hub — Asta Mart</title>
+<!-- M8: Open Graph tags for social sharing -->
+<meta property="og:title" content="Profile Hub — Asta Mart">
+<meta property="og:description" content="Manage your Asta Mart seller profile and listed Valorant accounts.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://asta-mart.in/asta_mart_logo_transparent.png">
+<meta property="og:image:width" content="720">
+<meta property="og:image:height" content="720">
+<!-- M6: Favicon and Apple touch icon -->
+<link rel="icon" type="image/x-icon" href="asta_mart_logo_transparent.ico">
+<link rel="apple-touch-icon" href="asta_mart_logo_transparent.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
@@ -153,17 +163,33 @@ document.addEventListener('DOMContentLoaded', async () => {
     return; 
   }
   
-  document.getElementById('profileGreeting').innerHTML = `Welcome, <span style="color: var(--accent-cyan);">${user.name.split(' ')[0]}</span>`;
+  // C4: Sanitize user.name to prevent stored XSS via innerHTML
+  document.getElementById('profileGreeting').innerHTML = `Welcome, <span style="color: var(--accent-cyan);">${sanitize(user.name.split(' ')[0])}</span>`;
 
-  // Load existing identity
-  const profile = JSON.parse(localStorage.getItem('am_seller_profile') || '{}');
-  const whatsappEl = document.getElementById('prof-whatsapp');
-  const discordEl = document.getElementById('prof-discord');
-  const upiEl = document.getElementById('prof-upi');
-  
-  if (whatsappEl) whatsappEl.value = profile.whatsapp || '';
-  if (discordEl) discordEl.value = profile.discord || '';
-  if (upiEl) upiEl.value = profile.upi || '';
+  // M3: Load profile from server (authoritative) + localStorage fallback
+  try {
+    const profileRes = await fetch(`${API_BASE_URL}/users/profile`, {
+      credentials: 'include'
+    });
+    if (profileRes.ok) {
+      const profile = await profileRes.json();
+      document.getElementById('prof-whatsapp').value = profile.whatsapp || '';
+      document.getElementById('prof-discord').value = profile.discord || '';
+      document.getElementById('prof-upi').value = profile.upi || '';
+    } else {
+      // Fallback to localStorage
+      const profile = JSON.parse(localStorage.getItem('am_seller_profile') || '{}');
+      document.getElementById('prof-whatsapp').value = profile.whatsapp || '';
+      document.getElementById('prof-discord').value = profile.discord || '';
+      document.getElementById('prof-upi').value = profile.upi || '';
+    }
+  } catch {
+    // Fallback to localStorage on error
+    const profile = JSON.parse(localStorage.getItem('am_seller_profile') || '{}');
+    document.getElementById('prof-whatsapp').value = profile.whatsapp || '';
+    document.getElementById('prof-discord').value = profile.discord || '';
+    document.getElementById('prof-upi').value = profile.upi || '';
+  }
 
   // Fetch and display user's listings stats
   try {

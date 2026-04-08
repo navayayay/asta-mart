@@ -7,8 +7,17 @@
 <meta property="og:title" content="Browse Valorant Accounts — Asta Mart">
 <meta property="og:description" content="Explore verified Valorant accounts by rank, region, and features.">
 <meta property="og:type" content="website">
+<!-- M8: Open Graph image for social sharing -->
+<meta property="og:image" content="https://asta-mart.in/asta_mart_logo_transparent.png">
+<meta property="og:image:width" content="720">
+<meta property="og:image:height" content="720">
 <meta name="twitter:card" content="summary_large_image">
 <title>Browse Accounts — Asta Mart</title>
+<!-- L3: Canonical link tag for SEO -->
+<link rel="canonical" href="https://asta-mart.in/browse.html">
+<!-- M6: Favicon and Apple touch icon -->
+<link rel="icon" type="image/x-icon" href="asta_mart_logo_transparent.ico">
+<link rel="apple-touch-icon" href="asta_mart_logo_transparent.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
@@ -88,7 +97,7 @@
 </head>
 <body>
 
-<nav class="navbar">
+<nav class="navbar" aria-label="Main Navigation">
   <a href="index.html" class="brand-logo-link">
     <img src="asta_mart_logo_transparent.png" alt="Asta Mart" class="nav-brand-img">
   </a>
@@ -162,7 +171,7 @@
 <div id="authModal" class="modal-overlay hidden"><div class="modal-box"><button class="modal-close" onclick="closeAuth()">✕</button><div class="auth-tabs"><button class="auth-tab active" onclick="switchTab('login')">Login</button><button class="auth-tab" onclick="switchTab('signup')">Sign Up</button></div><div id="loginForm" class="auth-form"><h2>Welcome Back</h2><p class="auth-sub">Enter your email address to continue</p><input type="email" placeholder="you@example.com" class="auth-input" id="loginEmail"><button class="btn-primary full" onclick="sendOTP('login')">Send Code</button><div id="loginOTPSection" class="otp-section hidden"><input type="text" placeholder="Enter 6-digit code" class="auth-input" id="loginOTP" maxlength="6"><button class="btn-primary full" onclick="verifyOTP('login')">Verify & Login</button></div></div><div id="signupForm" class="auth-form hidden"><h2>Create Account</h2><p class="auth-sub">Join Asta Mart</p><input type="text" placeholder="Full Name" class="auth-input" id="signupName"><input type="email" placeholder="you@example.com" class="auth-input" id="signupEmail"><button class="btn-primary full" onclick="sendOTP('signup')">Send Code</button><div id="signupOTPSection" class="otp-section hidden"><input type="text" placeholder="Enter 6-digit code" class="auth-input" id="signupOTP" maxlength="6"><button class="btn-primary full" onclick="verifyOTP('signup')">Verify & Create Account</button></div></div></div></div>
 
 <div class="browse-layout">
-  <aside class="modern-sidebar">
+  <aside class="modern-sidebar" aria-label="Browse Filters">
     <div class="sidebar-header">
       <h2 class="sidebar-title">FILTERS</h2>
       <button class="clear-btn" onclick="clearFilters()">Clear All</button>
@@ -216,7 +225,7 @@
 
   </aside>
 
-  <main class="main-content">
+  <main class="main-content" aria-label="Valorant Accounts Grid">
     <div class="top-bar">
       <div class="result-count">Showing <span id="disp-count" style="color: #fff; font-weight: bold;">0</span> accounts</div>
       <select class="sort-select" id="f-sort" onchange="applyFilters()">
@@ -368,5 +377,12 @@ function renderCards(listings) {
     });
 }
 </script>
+<noscript>
+  <div style="padding: 40px; text-align: center; background: #1a0f2e; color: #fff; font-family: 'Barlow', sans-serif;">
+    <h2>JavaScript Required</h2>
+    <p>This page requires JavaScript to be enabled to display account listings and functionality.</p>
+    <p>Please enable JavaScript in your browser settings and reload the page.</p>
+  </div>
+</noscript>
 </body>
 </html>

@@ -9,6 +9,8 @@
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary_large_image">
 <title>Account Details — Asta Mart</title>
+<!-- L3: Canonical link tag for SEO (set dynamically based on query params) -->
+<link rel="canonical" id="canonicalLink" href="https://asta-mart.in/listing.html">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
@@ -56,7 +58,7 @@
   </div>
 </div>
 
-<nav class="navbar">
+<nav class="navbar" aria-label="Main Navigation">
   <a href="index.html" class="brand-logo-link">
     <img src="asta_mart_logo_transparent.png" alt="Asta Mart" class="nav-brand-img">
   </a>
@@ -158,7 +160,7 @@
   </div>
 </div>
 
-<div class="container" style="padding-top: 100px;">
+<div class="container" style="padding-top: 100px;" role="main" aria-label="Listing Detail">
   <div id="listingDetail" class="listing-detail-wrapper" style="display: grid; grid-template-columns: 2fr 1fr; gap: 40px;">
     <!-- Rendered via JS -->
   </div>
@@ -177,7 +179,13 @@
 <script>
   document.addEventListener('DOMContentLoaded', async () => {
     const params = new URLSearchParams(window.location.search);
-    const id = params.get('id'); 
+    const id = params.get('id');
+    
+    // L3: Update canonical URL based on listing id
+    if (id) {
+      const canonicalLink = document.getElementById('canonicalLink');
+      canonicalLink.href = `https://asta-mart.in/listing.html?id=${encodeURIComponent(id)}`;
+    }
     
     if (id) {
       if (typeof GLOBAL_LISTINGS === 'undefined' || GLOBAL_LISTINGS.length === 0) {
@@ -189,5 +197,13 @@
     }
   });
 </script>
+<noscript>
+  <div style="padding: 40px; text-align: center; background: #1a0f2e; color: #fff; font-family: 'Barlow', sans-serif;">
+    <h2>JavaScript Required</h2>
+    <p>This page requires JavaScript to be enabled to display listing details and functionality.</p>
+    <p>Please enable JavaScript in your browser settings and reload the page.</p>
+    <p><a href="browse.html" style="color: #00fff0;">← Back to Browse</a></p>
+  </div>
+</noscript>
 </body>
 </html>

@@ -60,12 +60,15 @@ const corsOrigins = [
 ].filter(Boolean);
 app.use(cors({
   origin: corsOrigins,
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Admin-Token'],
   credentials: true
 }));
 
-console.log('✅ CORS Origins:', corsOrigins);
+// M5: Only log CORS info in development
+if (process.env.NODE_ENV !== 'production') {
+  console.log('✅ CORS Origins:', corsOrigins);
+}
 
 // --- RATE LIMITING ---
 const otpLimiter = rateLimit({
@@ -101,6 +104,15 @@ const viewLimiter = rateLimit({
   legacyHeaders: false
 });
 
+// H6: Global API rate limiter (protects all /api/* routes from abuse)
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 200, // 200 requests per IP per 15 minutes
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please try again later.' }
+});
+
 // --- EMAIL CONFIGURATION (Optional for development) ---
 let transporter = null;
 const emailConfigured = process.env.EMAIL_USER && process.env.EMAIL_PASS && 
@@ -124,16 +136,23 @@ if (emailConfigured) {
 const ADMIN_SECRET = process.env.ADMIN_SECRET;
 function adminAuth(req, res, next) {
   const token = req.headers['x-admin-token'];
-  if (!token || token !== ADMIN_SECRET) {
+  // H1: Use timing-safe comparison to prevent side-channel attacks
+  if (!token || token.length !== ADMIN_SECRET.length) {
     return res.status(401).json({ error: 'Unauthorized: Invalid admin token' });
   }
-  next();
+  try {
+    const safe = crypto.timingSafeEqual(Buffer.from(token), Buffer.from(ADMIN_SECRET));
+    if (!safe) return res.status(401).json({ error: 'Unauthorized: Invalid admin token' });
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: 'Unauthorized: Invalid admin token' });
+  }
 }
 
 // --- USER AUTHENTICATION MIDDLEWARE (JWT-based) ---
 const JWT_SECRET = process.env.JWT_SECRET;
 
-function requireAuth(req, res, next) {
+async function requireAuth(req, res, next) {
   // Check for token in httpOnly cookie (preferred) or Authorization header (fallback)
   const token = req.cookies.am_token || req.headers.authorization?.split(' ')[1];
   
@@ -143,6 +162,11 @@ function requireAuth(req, res, next) {
   
   try {
     req.user = jwt.verify(token, JWT_SECRET);
+    // H7: Verify tokenVersion hasn't been incremented (logout invalidates all sessions)
+    const dbUser = await User.findOne({ email: req.user.email }).select('tokenVersion');
+    if (!dbUser || dbUser.tokenVersion !== req.user.tv) {
+      return res.status(401).json({ error: 'Session invalidated. Please log in again.' });
+    }
     next();
   } catch (err) {
     return res.status(401).json({ error: 'Invalid or expired token' });
@@ -153,6 +177,9 @@ function requireAuth(req, res, next) {
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log('✅ Connected to MongoDB'))
   .catch(err => console.error('❌ MongoDB Connection Error:', err));
+
+// H6: Apply global rate limiter to all /api/* routes
+app.use('/api/', globalLimiter);
 
 // --- SCHEMAS (Imported from models.js) ---
 // All Mongoose schemas are now centralized in models.js
@@ -167,7 +194,10 @@ const valApiHeaders = {
 };
 
 // 🟢 THE SMART CACHE: Downloads the 30MB file ONCE and remembers it forever (persists to disk)
-const CACHE_FILE = './skin_catalog_cache.json';
+// M4: Cache file in /tmp or env-configured directory (not project root)
+const CACHE_FILE = process.env.CACHE_DIR
+  ? `${process.env.CACHE_DIR}/skin_catalog_cache.json`
+  : '/tmp/skin_catalog_cache.json';
 let masterSkinCatalog = null;
 
 async function getCachedCatalog() {
@@ -225,7 +255,11 @@ async function getCachedCatalog() {
 app.post('/api/auth/send-otp', otpLimiter, async (req, res) => {
     try {
         const { email, type } = req.body;
-        if (!email) return res.status(400).json({ error: 'Email is required' });
+        // H4: Validate email format to prevent injection attacks
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!email || !emailRegex.test(email) || email.length > 254) {
+            return res.status(400).json({ error: 'Invalid email address' });
+        }
 
         // Delete any old OTP for this email
         await OTP.deleteMany({ email });
@@ -233,8 +267,11 @@ app.post('/api/auth/send-otp', otpLimiter, async (req, res) => {
         // Generate a 6-digit random OTP
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         
+        // C3: Hash OTP before storage (prevent plaintext DB exposure on breach)
+        const hashedOtp = crypto.createHash('sha256').update(otp).digest('hex');
+        
         // Save to MongoDB with TTL (auto-expires in 5 minutes)
-        const otpDoc = new OTP({ email, code: otp });
+        const otpDoc = new OTP({ email, code: hashedOtp });
         await otpDoc.save();
 
         // Send OTP via email if configured
@@ -277,8 +314,11 @@ app.post('/api/auth/verify-otp', verifyLimiter, async (req, res) => {
         const { email, otp, name } = req.body;
         if (!email || !otp) return res.status(400).json({ error: 'Email and OTP are required' });
 
+        // C3: Hash input OTP and compare with stored hash (prevents plaintext comparison)
+        const hashedInput = crypto.createHash('sha256').update(otp).digest('hex');
+        
         // Query MongoDB for the OTP (TTL will automatically delete expired ones)
-        const otpDoc = await OTP.findOne({ email, code: otp });
+        const otpDoc = await OTP.findOne({ email, code: hashedInput });
         if (!otpDoc) {
             return res.status(400).json({ error: 'Invalid or expired OTP' });
         }
@@ -289,12 +329,18 @@ app.post('/api/auth/verify-otp', verifyLimiter, async (req, res) => {
         // Find the user in the database, or create a new one if they are signing up
         let user = await User.findOne({ email });
         if (!user) {
-            user = new User({ email, name: name || 'Asta User' });
+            // H8: Validate and sanitize user name before storage
+            const cleanName = (name || 'Asta User').trim().slice(0, 60).replace(/[^\w\s\-'.]/g, '') || 'Asta User';
+            user = new User({ email, name: cleanName });
             await user.save();
         }
 
-        // Issue JWT token (valid for 7 days)
-        const token = jwt.sign({ email: user.email, name: user.name }, JWT_SECRET, { expiresIn: '7d' });
+        // H7: Issue JWT token with tokenVersion for revocation support
+        const token = jwt.sign(
+          { email: user.email, name: user.name, tv: user.tokenVersion },
+          JWT_SECRET,
+          { expiresIn: '7d' }
+        );
 
         // Send token as httpOnly cookie (XSS-safe)
         res.cookie('am_token', token, {
@@ -313,13 +359,21 @@ app.post('/api/auth/verify-otp', verifyLimiter, async (req, res) => {
 });
 
 // --- LOGOUT ROUTE ---
-app.post('/api/auth/logout', (req, res) => {
-  res.clearCookie('am_token', {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'Strict'
+app.post('/api/auth/logout', requireAuth, (req, res) => {
+  // H7: Increment tokenVersion to invalidate all active sessions for this user
+  User.findOneAndUpdate(
+    { email: req.user.email },
+    { $inc: { tokenVersion: 1 } }
+  ).then(() => {
+    res.clearCookie('am_token', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'Strict'
+    });
+    res.json({ success: true });
+  }).catch(() => {
+    res.status(500).json({ error: 'Logout failed' });
   });
-  res.json({ success: true });
 });
 
 // --- USER PROFILE ROUTE ---
@@ -382,6 +436,21 @@ app.patch('/api/users/profile', requireAuth, [
   } catch (err) {
     console.error('❌ Profile Update Error:', err);
     res.status(500).json({ error: 'Failed to update profile. Please try again.' });
+  }
+});
+
+// M3: GET user profile from server (authoritative source)
+app.get('/api/users/profile', requireAuth, async (req, res) => {
+  try {
+    const user = await User.findOne({ email: req.user.email })
+      .select('name email discord whatsapp upi joinedAt');
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    res.json(user);
+  } catch (err) {
+    console.error('❌ Profile Fetch Error:', err);
+    res.status(500).json({ error: 'Failed to fetch profile. Please try again.' });
   }
 });
 
@@ -502,16 +571,29 @@ app.delete('/api/vault/:id', requireAuth, async (req, res) => {
 });
 
 // --- LISTINGS API ---
+// H5: GET /api/listings with pagination to prevent DoS and improve performance
 app.get('/api/listings', async (req, res) => {
   try {
-    // Fetch all active listings with lean() for performance
-    // Exclude sensitive contact fields from public endpoint
-    const listings = await Listing.find({ status: 'active' })
-      .lean()
-      .sort({ createdAt: -1 })
-      .select('-sellerPhone -sellerDiscord -sellerId');
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(50, parseInt(req.query.limit) || 20);
+    const skip = (page - 1) * limit;
+    
+    const [listings, total] = await Promise.all([
+      Listing.find({ status: 'active' })
+        .lean()
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .select('-sellerPhone -sellerDiscord -sellerId'),
+      Listing.countDocuments({ status: 'active' })
+    ]);
 
-    res.json(listings);
+    res.json({
+      listings,
+      total,
+      page,
+      pages: Math.ceil(total / limit)
+    });
   } catch (error) {
     res.status(500).json({ error: 'Server error fetching listings' });
   }
@@ -559,6 +641,33 @@ app.post('/api/listings', requireAuth, [
       (url.startsWith('https://') || url.startsWith('http://')) &&
       url.length < 500
     )).withMessage('All images must be valid http/https URLs under 500 characters'),
+  body('skinTags').optional().isArray({ max: 100 }).custom(arr => {
+    return arr.every(item => {
+      try {
+        const s = typeof item === 'string' ? JSON.parse(item) : item;
+        return typeof s.name === 'string' && s.name.length < 100 && s.name.length > 0 &&
+               typeof s.icon === 'string' && (s.icon.startsWith('https://media.valorant-api.com/') || s.icon.startsWith('data:'));
+      } catch { return false; }
+    });
+  }).withMessage('Invalid skinTag format'),
+  body('battlepassTags').optional().isArray({ max: 100 }).custom(arr => {
+    return arr.every(item => {
+      try {
+        const s = typeof item === 'string' ? JSON.parse(item) : item;
+        return typeof s.name === 'string' && s.name.length < 100 && s.name.length > 0 &&
+               typeof s.icon === 'string' && (s.icon.startsWith('https://media.valorant-api.com/') || s.icon.startsWith('data:'));
+      } catch { return false; }
+    });
+  }).withMessage('Invalid battlepassTag format'),
+  body('agents').optional().isArray({ max: 100 }).custom(arr => {
+    return arr.every(item => {
+      try {
+        const s = typeof item === 'string' ? JSON.parse(item) : item;
+        return typeof s.name === 'string' && s.name.length < 100 && s.name.length > 0 &&
+               typeof s.icon === 'string' && (s.icon.startsWith('https://media.valorant-api.com/') || s.icon.startsWith('data:'));
+      } catch { return false; }
+    });
+  }).withMessage('Invalid agent format'),
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -626,9 +735,7 @@ app.put('/api/listings/:id', requireAuth, async (req, res) => {
 });
 
 // --- ORDERS API ---
-app.post('/api/orders/inventory-edit', [
-  body('sellerName').trim().notEmpty().isLength({ max: 100 }),
-  body('sellerPhone').optional().trim().matches(/^\+?[1-9]\d{1,14}$/),
+app.post('/api/orders/inventory-edit', requireAuth, [
   body('title').trim().notEmpty().isLength({ max: 200 }),
   body('price').isFloat({ min: 0, max: 10000000 }),
   body('transactionId').optional().trim().isLength({ max: 50 }),
@@ -637,15 +744,15 @@ app.post('/api/orders/inventory-edit', [
         const errors = validationResult(req);
         if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
         
-        // Extract only whitelisted fields — never accept status from body
-        const { sellerName, sellerPhone, title, price, transactionId } = req.body;
+        // H3: Seller info comes from JWT, never from body (prevent spoofing)
+        const { title, price, transactionId } = req.body;
         const newOrder = new Order({
-            sellerName,
-            sellerPhone: sellerPhone || '',
+            sellerName: req.user.name,
+            sellerId: req.user.email,
             title,
             price,
             transactionId: transactionId || '',
-            status: 'pending' // Always set to pending — client cannot override
+            status: 'pending'
         });
         await newOrder.save();
         res.json({ success: true });

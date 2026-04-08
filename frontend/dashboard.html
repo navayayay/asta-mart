@@ -4,11 +4,21 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dashboard — Asta Mart</title>
+<!-- M8: Open Graph tags -->
+<meta property="og:title" content="Dashboard — Asta Mart">
+<meta property="og:description" content="Manage your Valorant account listings on Asta Mart.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://asta-mart.in/asta_mart_logo_transparent.png">
+<meta property="og:image:width" content="720">
+<meta property="og:image:height" content="720">
+<!-- M6: Favicon -->
+<link rel="icon" type="image/x-icon" href="asta_mart_logo_transparent.ico">
+<link rel="apple-touch-icon" href="asta_mart_logo_transparent.png">
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<nav class="navbar">
+<nav class="navbar" aria-label="Main Navigation">
   <a href="index.html" class="brand-logo-link">
     <img src="asta_mart_logo_transparent.png" alt="Asta Mart" class="nav-brand-img">
   </a>
@@ -85,7 +95,7 @@
     <button class="btn-primary" onclick="window.location.href='index.html'">Go to Home</button>
   </div>
 
-  <div id="dashContent" style="display:none">
+  <div id="dashContent" style="display:none" role="main" aria-label="Seller Dashboard Content">
     <div class="dash-header">
       <div>
         <h1 class="dash-title">Seller Dashboard</h1>
@@ -221,7 +231,7 @@ function loadDashboard(user) {
 function renderDashCard(l) {
   const imgSrc = l.images && l.images[0] ? sanitize(l.images[0]) : null;
   const img = imgSrc
-    ? `<img src="${imgSrc}" alt="" onerror="this.style.display='none'">`
+    ? `<img src="${imgSrc}" alt="Listing: ${sanitize(l.title).substring(0, 50)}" loading="lazy" onerror="this.style.display='none'">`
     : '<div class="card-img-placeholder">🎮</div>';
   return `
     <div class="dash-listing-card">
@@ -245,21 +255,37 @@ function renderDashCard(l) {
 
 async function markSold(id) {
   if (!confirm('Mark as sold?')) return;
-  const res = await fetch(`${API_BASE_URL}/listings/${id}`, { 
-    method: 'PUT',
-    headers: getAuthHeaders()
-  });
-  if (res.ok) location.reload();
-  else alert('Failed to update listing');
+  // M7: Add try/catch for proper error handling
+  try {
+    const res = await fetch(`${API_BASE_URL}/listings/${id}`, { 
+      method: 'PUT',
+      headers: getAuthHeaders()
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to update listing');
+    }
+    location.reload();
+  } catch(err) {
+    alert('Failed to mark as sold: ' + err.message);
+  }
 }
 async function deleteListing(id) {
   if (!confirm('Delete permanently?')) return;
-  const res = await fetch(`${API_BASE_URL}/listings/${id}`, { 
-    method: 'DELETE',
-    headers: getAuthHeaders()
-  });
-  if (res.ok) location.reload();
-  else alert('Failed to delete listing');
+  // M7: Add try/catch for proper error handling
+  try {
+    const res = await fetch(`${API_BASE_URL}/listings/${id}`, { 
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to delete listing');
+    }
+    location.reload();
+  } catch(err) {
+    alert('Failed to delete listing: ' + err.message);
+  }
 }
 
 function updateProfile() {
@@ -304,5 +330,12 @@ function showDashTab(btn, tab) {
 function toggleUserMenu() { document.getElementById('userMenu')?.classList.toggle('hidden'); }
 function logout() { localStorage.removeItem('am_user'); location.href = 'index.html'; }
 </script>
+<noscript>
+  <div style="padding: 40px; text-align: center; background: #1a0f2e; color: #fff; font-family: 'Barlow', sans-serif;">
+    <h2>JavaScript Required</h2>
+    <p>This page requires JavaScript to be enabled to display your listings and seller dashboard.</p>
+    <p>Please enable JavaScript in your browser settings and reload the page.</p>
+  </div>
+</noscript>
 </body>
 </html>

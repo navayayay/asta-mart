@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<nav class="navbar">
+<nav class="navbar" aria-label="Main Navigation">
   <a href="index.html" class="brand-logo-link">
     <img src="asta_mart_logo_transparent.png" alt="Asta Mart" class="nav-brand-img">
   </a>
@@ -111,7 +111,7 @@
   </div>
 </div>
 
-<div class="container" style="padding: 100px 20px 40px;">
+<div class="container" style="padding: 100px 20px 40px;" role="main" aria-label="Compare Accounts Section">
   <div class="section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
     <h1 class="section-title">Compare Accounts</h1>
     <button class="btn-ghost sm" onclick="clearCompare(); window.location='browse.html'">Clear & Browse</button>
@@ -149,5 +149,12 @@
     }
   });
 </script>
+<noscript>
+  <div style="padding: 40px; text-align: center; background: #1a0f2e; color: #fff; font-family: 'Barlow', sans-serif;">
+    <h2>JavaScript Required</h2>
+    <p>This page requires JavaScript to be enabled to compare accounts and functionality.</p>
+    <p>Please enable JavaScript in your browser settings and reload the page.</p>
+  </div>
+</noscript>
 </body>
 </html>

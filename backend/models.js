@@ -8,6 +8,7 @@ const UserSchema = new mongoose.Schema({
   whatsapp: String,
   upi: String,
   instagram: String,
+  tokenVersion: { type: Number, default: 0 }, // H7: JWT revocation via version increment
   joinedAt: { type: Date, default: Date.now }
 });
 
