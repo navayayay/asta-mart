@@ -213,7 +213,9 @@ async function loadAllAdminData() {
         const resListings = await fetch(`${API_BASE_URL}/admin/listings`, {
             headers: headers
         });
-        const allListings = await resListings.json();
+        const data = await resListings.json();
+        // Backend returns {listings: [...], total, page, pages}
+        const allListings = Array.isArray(data) ? data : (data.listings || []);
         
         const pending = allListings.filter(l => l.status === 'pending');
         const active = allListings.filter(l => l.status === 'active' || l.status === 'sold');

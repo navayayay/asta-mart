@@ -49,18 +49,30 @@ document.addEventListener('DOMContentLoaded', async () => {
   renderCompareTray();
   
   // Initialize video effect only on index page (where #heroSection exists)
-  // Use window load event to ensure all external libraries are fully ready
-  if (document.getElementById('heroSection')) {
-    window.addEventListener('load', () => {
-      console.log('🎬 Window load event fired, initializing video effect...');
+  const heroSection = document.getElementById('heroSection');
+  if (heroSection) {
+    // If page is already loaded, call immediately; otherwise wait for load event
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+      console.log('🎬 Page already loaded, initializing video effect...');
       setTimeout(() => {
         if (typeof initVideoScrollEffects === 'function') {
           initVideoScrollEffects();
         } else {
           console.error('❌ initVideoScrollEffects function not found');
         }
-      }, 300);
-    }, { once: true });
+      }, 100);
+    } else {
+      window.addEventListener('load', () => {
+        console.log('🎬 Window load event fired, initializing video effect...');
+        setTimeout(() => {
+          if (typeof initVideoScrollEffects === 'function') {
+            initVideoScrollEffects();
+          } else {
+            console.error('❌ initVideoScrollEffects function not found');
+          }
+        }, 300);
+      }, { once: true });
+    }
   }
 
   // Render main grid (if on browse/dashboard)
@@ -86,7 +98,9 @@ async function fetchAllListingsFromDB() {
   try {
     const response = await fetch(`${API_BASE_URL}/listings`);
     if (!response.ok) throw new Error('Network response was not ok');
-    GLOBAL_LISTINGS = await response.json();
+    const data = await response.json();
+    // Backend returns {listings: [...], total, page, pages}
+    GLOBAL_LISTINGS = Array.isArray(data) ? data : (data.listings || []);
   } catch (error) {
     console.error('Failed to fetch listings from backend:', error);
     // M1: Show empty state instead of fake sample data
@@ -108,19 +122,13 @@ function updateStatCount() {
 }
 
 // ===================== FLAWLESS GSAP SCROLL SYNC =====================
-// L5: GSAP Race Condition Guards & Documentation
-// The following guards are in place to prevent race conditions if GSAP/ScrollTrigger
-// libraries load asynchronously or if the video element is not yet in the DOM:
-// 1. Video element check: Ensures #scrubVideo exists before attempting initialization
-// 2. GSAP & ScrollTrigger availability check: Verifies both libraries are globally available
-// 3. Video readyState check: Ensures video metadata is loaded before setting currentTime
-// 4. Duration fallback: Uses 5-second fallback if duration is unavailable
-// 5. Window load event: Consider wrapping in window addEventListener('load', ...) for deferred init
-// These guards prevent console errors and ensure graceful degradation if assets fail to load.
+// L5: GSAP Frame-Based Animation (From Video Frames)
+// Cycles through 39 extracted frames based on scroll progress for smooth animation
+// Advantages: Faster loading, better compatibility, more control
 function initVideoScrollEffects() {
-  const video = document.getElementById('scrubVideo');
-  if (!video) {
-    console.warn('❌ Video element not found');
+  const img = document.getElementById('scrubImage');
+  if (!img) {
+    console.warn('❌ Image element not found');
     return;
   }
   if (typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined') {
@@ -132,10 +140,10 @@ function initVideoScrollEffects() {
     return;
   }
   
-  console.log('🎬 Initializing video scroll effect...');
+  console.log('🎬 Initializing frame-based scroll effect...');
   
-  video.muted = true;
-  video.playsinline = true;
+  const totalFrames = 39; // Total extracted frames
+  const framePath = 'frames/frame_';
   
   // Initialize Lenis smooth scroll with proper lifecycle management
   const lenis = new Lenis({ 
@@ -160,15 +168,7 @@ function initVideoScrollEffects() {
   
   const startGSAPTimeline = () => {
     try {
-      console.log('📹 Starting GSAP timeline...', { 
-        readyState: video.readyState,
-        duration: video.duration, 
-        paused: video.paused 
-      });
-      
-      video.pause();
-      const vidDur = (video.duration && !isNaN(video.duration) && video.duration > 0) ? video.duration : 5;
-      console.log('⏱️ Video duration:', vidDur);
+      console.log('📹 Starting GSAP frame timeline...');
       
       let tl = gsap.timeline({ 
         scrollTrigger: { 
@@ -177,8 +177,13 @@ function initVideoScrollEffects() {
           end: "+=3500",
           scrub: 1, 
           pin: true,
-          markers: false, // Set to true for debugging
+          markers: false,
           onUpdate: (self) => { 
+            // Calculate which frame to show based on scroll progress
+            const frameNum = Math.ceil(self.progress * totalFrames);
+            const frameIndex = Math.max(1, Math.min(frameNum, totalFrames));
+            img.src = `${framePath}${String(frameIndex).padStart(4, '0')}.jpg`;
+            
             if (ScrollTrigger.getAll().length > 0) {
               ScrollTrigger.getAll()[0].refresh(); 
             }
@@ -186,61 +191,27 @@ function initVideoScrollEffects() {
         } 
       });
       
-      let videoProxy = { time: 0 };
+      const animDuration = 1.0; // Animation duration for other elements
       
-      // 1. Play video from 0 to exactly vidDur
-      tl.to(videoProxy, { 
-        time: vidDur, 
-        ease: "none", 
-        onUpdate: () => { 
-          if (video && video.readyState >= 2) {
-            video.currentTime = videoProxy.time; 
-          } 
-        } 
-      }, 0);
+      // 1. Fade Text early
+      tl.to(".gs-reveal-text", { opacity: 0, y: -100, scale: 1.05, duration: animDuration * 0.2 }, 0);
       
-      // 2. Fade Text early
-      tl.to(".gs-reveal-text", { opacity: 0, y: -100, scale: 1.05, duration: vidDur * 0.2 }, 0);
-      
-      // 3. Pop the cards up
+      // 2. Pop the cards up
       tl.fromTo(".glass-card", 
         { opacity: 0, y: 150, filter: "blur(10px)" }, 
-        { opacity: 1, y: 0, filter: "blur(0px)", stagger: 0.05, duration: vidDur * 0.1, ease: "power2.out" }, 
-        vidDur * 0.01 
+        { opacity: 1, y: 0, filter: "blur(0px)", stagger: 0.05, duration: animDuration * 0.1, ease: "power2.out" }, 
+        animDuration * 0.01 
       );
       
-      console.log('✅ GSAP timeline created successfully', { videoDuration: vidDur });
+      console.log('✅ GSAP frame timeline created successfully', { totalFrames });
     } catch (err) {
       console.error('❌ Error initializing GSAP timeline:', err);
     }
   };
   
-  // Wait for video to be ready - try multiple strategies
-  console.log('📌 Current video readyState:', video.readyState);
-  
-  if (video.readyState >= 2) {
-    console.log('✓ Video metadata already loaded, starting timeline immediately');
-    setTimeout(startGSAPTimeline, 100); // Small delay to ensure DOM is ready
-  } else {
-    console.log('⏳ Waiting for video to load...');
-    const handleVideoReady = () => {
-      console.log('✓ Video ready event fired');
-      startGSAPTimeline();
-    };
-    video.addEventListener('loadedmetadata', handleVideoReady, { once: true });
-    video.addEventListener('canplay', handleVideoReady, { once: true });
-    
-    // Fallback timeout
-    setTimeout(() => {
-      if (video.readyState >= 2) {
-        console.log('✓ Video ready (via timeout)');
-        startGSAPTimeline();
-      } else {
-        console.warn('⚠️ Video not ready after timeout, attempting anyway');
-        startGSAPTimeline();
-      }
-    }, 2000);
-  }
+  // Start timeline with small delay to ensure DOM is ready
+  console.log('📌 Starting frame animation...');
+  setTimeout(startGSAPTimeline, 100);
 }
 
 // ===================== API-DRIVEN AUTHENTICATION =====================
