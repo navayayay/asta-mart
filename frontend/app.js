@@ -47,7 +47,21 @@ document.addEventListener('DOMContentLoaded', async () => {
   initAuth();
   updateCartBadge(); 
   renderCompareTray();
-  if(typeof initVideoScrollEffects === 'function') initVideoScrollEffects();
+  
+  // Initialize video effect only on index page (where #heroSection exists)
+  // Use window load event to ensure all external libraries are fully ready
+  if (document.getElementById('heroSection')) {
+    window.addEventListener('load', () => {
+      console.log('🎬 Window load event fired, initializing video effect...');
+      setTimeout(() => {
+        if (typeof initVideoScrollEffects === 'function') {
+          initVideoScrollEffects();
+        } else {
+          console.error('❌ initVideoScrollEffects function not found');
+        }
+      }, 300);
+    }, { once: true });
+  }
 
   // Render main grid (if on browse/dashboard)
   if (document.getElementById('listingsGrid')) {
@@ -106,21 +120,39 @@ function updateStatCount() {
 function initVideoScrollEffects() {
   const video = document.getElementById('scrubVideo');
   if (!video) {
-    console.warn('Video element not found');
+    console.warn('❌ Video element not found');
     return;
   }
   if (typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined') {
-    console.warn('GSAP or ScrollTrigger not loaded');
+    console.warn('❌ GSAP or ScrollTrigger not loaded');
     return;
   }
+  if (typeof Lenis === 'undefined') {
+    console.warn('❌ Lenis not loaded');
+    return;
+  }
+  
+  console.log('🎬 Initializing video scroll effect...');
   
   video.muted = true;
   video.playsinline = true;
   
-  const lenis = new Lenis({ duration: 1.2, smooth: true });
-  function raf(time) { lenis.raf(time); requestAnimationFrame(raf); }
-  requestAnimationFrame(raf);
+  // Initialize Lenis smooth scroll with proper lifecycle management
+  const lenis = new Lenis({ 
+    duration: 1.2, 
+    smooth: true,
+    viewport: window.innerHeight
+  });
   
+  // Connect Lenis to RAF
+  let lenisAnimationId = null;
+  function raf(time) { 
+    lenis.raf(time); 
+    lenisAnimationId = requestAnimationFrame(raf); 
+  }
+  lenisAnimationId = requestAnimationFrame(raf);
+  
+  // Register GSAP plugin and connect Lenis
   gsap.registerPlugin(ScrollTrigger);
   lenis.on('scroll', ScrollTrigger.update);
   gsap.ticker.add((time) => lenis.raf(time * 1000));
@@ -128,8 +160,15 @@ function initVideoScrollEffects() {
   
   const startGSAPTimeline = () => {
     try {
+      console.log('📹 Starting GSAP timeline...', { 
+        readyState: video.readyState,
+        duration: video.duration, 
+        paused: video.paused 
+      });
+      
       video.pause();
       const vidDur = (video.duration && !isNaN(video.duration) && video.duration > 0) ? video.duration : 5;
+      console.log('⏱️ Video duration:', vidDur);
       
       let tl = gsap.timeline({ 
         scrollTrigger: { 
@@ -138,7 +177,12 @@ function initVideoScrollEffects() {
           end: "+=3500",
           scrub: 1, 
           pin: true,
-          onUpdate: (self) => { ScrollTrigger.getAll()[0].refresh(); }
+          markers: false, // Set to true for debugging
+          onUpdate: (self) => { 
+            if (ScrollTrigger.getAll().length > 0) {
+              ScrollTrigger.getAll()[0].refresh(); 
+            }
+          }
         } 
       });
       
@@ -165,21 +209,38 @@ function initVideoScrollEffects() {
         vidDur * 0.01 
       );
       
-      console.log('✅ GSAP timeline initialized', { videoDuration: vidDur, readyState: video.readyState });
+      console.log('✅ GSAP timeline created successfully', { videoDuration: vidDur });
     } catch (err) {
-      console.error('Error initializing GSAP timeline:', err);
+      console.error('❌ Error initializing GSAP timeline:', err);
     }
   };
   
-  // Wait for video to be ready
-  if (video.readyState >= 2) {
-    startGSAPTimeline();
-  } else {
-    video.addEventListener('loadedmetadata', startGSAPTimeline, { once: true });
-    video.addEventListener('canplay', startGSAPTimeline, { once: true });
-  }
+  // Wait for video to be ready - try multiple strategies
+  console.log('📌 Current video readyState:', video.readyState);
   
-  video.load();
+  if (video.readyState >= 2) {
+    console.log('✓ Video metadata already loaded, starting timeline immediately');
+    setTimeout(startGSAPTimeline, 100); // Small delay to ensure DOM is ready
+  } else {
+    console.log('⏳ Waiting for video to load...');
+    const handleVideoReady = () => {
+      console.log('✓ Video ready event fired');
+      startGSAPTimeline();
+    };
+    video.addEventListener('loadedmetadata', handleVideoReady, { once: true });
+    video.addEventListener('canplay', handleVideoReady, { once: true });
+    
+    // Fallback timeout
+    setTimeout(() => {
+      if (video.readyState >= 2) {
+        console.log('✓ Video ready (via timeout)');
+        startGSAPTimeline();
+      } else {
+        console.warn('⚠️ Video not ready after timeout, attempting anyway');
+        startGSAPTimeline();
+      }
+    }, 2000);
+  }
 }
 
 // ===================== API-DRIVEN AUTHENTICATION =====================
