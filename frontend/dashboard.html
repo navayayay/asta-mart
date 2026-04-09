@@ -15,6 +15,7 @@
 <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="64x64" href="favicon-64x64.png">
+<link rel="apple-touch-icon" sizes="180x180" href="asta_mart_logo_transparent.png">
 <link rel="apple-touch-icon" href="asta_mart_logo_transparent.png">
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
@@ -259,10 +260,11 @@ async function markSold(id) {
   if (!confirm('Mark as sold?')) return;
   // M7: Add try/catch for proper error handling
   try {
-    const res = await fetch(`${API_BASE_URL}/listings/${id}`, { 
-      method: 'PUT',
-      headers: getAuthHeaders(),
-      credentials: 'include'
+    const res = await fetch(`${API_BASE_URL}/listings/${id}/status`, { 
+      method: 'PATCH',
+      headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ status: 'sold' })
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));

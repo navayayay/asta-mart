@@ -66,9 +66,11 @@ class RiotAPI {
             const entResponse = await this.client.post('https://entitlements.auth.riotgames.com/api/token/v1', {}, { headers: { 'Authorization': `Bearer ${accessToken}` } });
             entToken = entResponse.data.entitlements_token;
 
-            const tokenParts = accessToken.split('.');
-            const payload = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString('utf-8'));
-            puuid = payload.sub;
+            // Get verified PUUID from Riot's /userinfo endpoint (authoritative source)
+            const userinfoRes = await this.client.get('https://auth.riotgames.com/userinfo', 
+                { headers: { 'Authorization': `Bearer ${accessToken}` } }
+            );
+            puuid = userinfoRes.data.sub;
 
             // 2. Exact Country Detection
             if (idToken) {

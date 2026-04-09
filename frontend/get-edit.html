@@ -8,6 +8,7 @@
 <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="64x64" href="favicon-64x64.png">
+<link rel="apple-touch-icon" sizes="180x180" href="asta_mart_logo_transparent.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
@@ -198,7 +199,7 @@
         
         <div style="margin: 30px 0; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 30px;">
           <p style="color: var(--white-dim); font-size: 14px;">Scan or enter this UPI ID in your payment app to complete your order:</p>
-          <div class="upi-id">navay@fam</div>
+          <div class="upi-id" id="dynamicUpiId">Loading...</div>
         </div>
 
         <div class="form-group" style="text-align: left; margin-top: 20px;">
@@ -227,7 +228,6 @@
   </div>
 </div>
 
-<script src="data.js"></script>
 <script src="app.js"></script>
 <script src="effects.js"></script>
 
@@ -242,6 +242,19 @@ document.addEventListener('DOMContentLoaded', () => {
   } else {
     document.getElementById('listingForm').classList.remove('hidden');
   }
+  
+  // Load UPI ID dynamically
+  fetch(`${API_BASE_URL}/config/payment-upi`)
+    .then(r => r.json())
+    .then(data => {
+      const el = document.getElementById('dynamicUpiId');
+      if (el) el.textContent = data.upi || 'Contact seller';
+    })
+    .catch(err => {
+      console.error('Failed to load UPI:', err);
+      const el = document.getElementById('dynamicUpiId');
+      if (el) el.textContent = 'Contact seller for payment details';
+    });
 });
 
 function nextStep(current, next) {

@@ -1,0 +1,36 @@
+# Environment variables - NEVER commit secrets
+.env
+.env.local
+.env.*.local
+
+# Node dependencies
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# OS files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# Build outputs
+dist/
+build/
+
+# Logs
+logs/
+*.log
+
+# Cache
+CACHE_DIR/
+/cache/
+.cache/
+
+# Process files
+*.pid

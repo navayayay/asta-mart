@@ -13,6 +13,7 @@
 <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="64x64" href="favicon-64x64.png">
+<link rel="apple-touch-icon" sizes="180x180" href="asta_mart_logo_transparent.png">
 <!-- L3: Canonical link tag for SEO (set dynamically based on query params) -->
 <link rel="canonical" id="canonicalLink" href="https://asta-mart.in/listing.html">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -166,7 +167,10 @@
 
 <div class="container" style="padding-top: 100px;" role="main" aria-label="Listing Detail">
   <div id="listingDetail" class="listing-detail-wrapper" style="display: grid; grid-template-columns: 2fr 1fr; gap: 40px;">
-    <!-- Rendered via JS -->
+    <!-- Skeleton loader while data loads -->
+    <div class="skeleton-loader" style="grid-column: 1/-1; padding: 60px; text-align: center; color: var(--white-dim); font-size: 18px;">
+      Loading listing details...
+    </div>
   </div>
 </div>
 
@@ -177,7 +181,6 @@
   </div>
 </section>
 
-<script src="data.js"></script>
 <script src="app.js"></script>
 <script src="effects.js"></script>
 <script>

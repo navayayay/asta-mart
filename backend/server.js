@@ -17,6 +17,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
+const csrf = require('csurf');
 const rateLimit = require('express-rate-limit');
 const axios = require('axios');
 const crypto = require('crypto');
@@ -37,6 +38,7 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'", "https://cdnjs.cloudflare.com", "https://fonts.googleapis.com", "https://unpkg.com"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "https://media.valorant-api.com", "https://valorant-api.com"],
       connectSrc: [
         "'self'",
@@ -46,8 +48,30 @@ app.use(helmet({
           : [])
       ],
     }
-  }
+  },
+  frameguard: {
+    action: 'deny'  // Prevent embedding in ANY iframe
+  },
+  noSniff: true,    // Prevent MIME sniffing
+  xssFilter: true,  // Legacy XSS filter
+  hsts: {
+    maxAge: 31536000,  // 1 year
+    includeSubDomains: true,
+    preload: true
+  },
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' }
 }));
+
+// --- HTTPS ENFORCEMENT (Production Only) ---
+if (process.env.NODE_ENV === 'production') {
+  app.use((req, res, next) => {
+    if (req.header('x-forwarded-proto') !== 'https') {
+      res.redirect(301, `https://${req.header('host')}${req.url}`);
+    } else {
+      next();
+    }
+  });
+}
 
 // --- CORS CONFIGURATION ---
 const corsOrigins = [
@@ -62,7 +86,7 @@ const corsOrigins = [
 app.use(cors({
   origin: corsOrigins,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Admin-Token'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Admin-Token', 'CSRF-Token'],
   credentials: true
 }));
 
@@ -96,6 +120,22 @@ const syncLimiter = rateLimit({
   legacyHeaders: false
 });
 
+const adminLoginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // maximum 5 login attempts per IP per 15 minutes
+  message: { error: 'Too many admin login attempts. Please wait 15 minutes.' },
+  standardHeaders: false,
+  legacyHeaders: false
+});
+
+const adminLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // 10 admin requests per IP per 15 minutes
+  message: { error: 'Too many admin requests. Please wait 15 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
 const viewLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: 1, // maximum 1 view per hour per IP per listing
@@ -113,6 +153,27 @@ const globalLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Too many requests. Please try again later.' }
 });
+
+// --- CSRF PROTECTION ---
+const csrfProtection = csrf({ cookie: false });  // Use session-based tokens
+
+// --- STANDARDIZED API RESPONSE HANDLER ---
+function sendSuccess(res, data = null, message = 'Success', statusCode = 200) {
+  res.status(statusCode).json({
+    success: true,
+    message,
+    data
+  });
+}
+
+function sendError(res, error, statusCode = 400) {
+  const isValidationError = Array.isArray(error);
+  res.status(statusCode).json({
+    success: false,
+    error: isValidationError ? 'Validation failed' : (error.message || error),
+    ...(isValidationError && { details: error })
+  });
+}
 
 // --- EMAIL CONFIGURATION (Optional for development) ---
 let transporter = null;
@@ -147,6 +208,22 @@ function adminAuth(req, res, next) {
     next();
   } catch (err) {
     return res.status(401).json({ error: 'Unauthorized: Invalid admin token' });
+  }
+}
+
+// --- ADMIN JWT AUTHENTICATION MIDDLEWARE (Cookie-based, Secure) ---
+function adminAuthJWT(req, res, next) {
+  const token = req.cookies.am_admin;
+  
+  if (!token) {
+    return res.status(401).json({ error: 'Admin session expired. Please log in again.' });
+  }
+  
+  try {
+    req.admin = jwt.verify(token, JWT_SECRET);
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: 'Invalid or expired admin session' });
   }
 }
 
@@ -252,6 +329,11 @@ async function getCachedCatalog() {
     }
 }
 
+// --- CSRF TOKEN ENDPOINT ---
+app.get('/api/csrf-token', csrfProtection, (req, res) => {
+  res.json({ csrfToken: req.csrfToken() });
+});
+
 // --- AUTH / OTP ROUTES ---
 app.post('/api/auth/send-otp', otpLimiter, async (req, res) => {
     try {
@@ -260,6 +342,11 @@ app.post('/api/auth/send-otp', otpLimiter, async (req, res) => {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!email || !emailRegex.test(email) || email.length > 254) {
             return res.status(400).json({ error: 'Invalid email address' });
+        }
+        
+        // Validate OTP type parameter
+        if (type && !['login', 'signup'].includes(type)) {
+            return res.status(400).json({ error: 'Invalid request type' });
         }
 
         // Delete any old OTP for this email
@@ -346,7 +433,7 @@ app.post('/api/auth/verify-otp', verifyLimiter, async (req, res) => {
         // Send token as httpOnly cookie (XSS-safe)
         res.cookie('am_token', token, {
           httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
+          secure: true,  // ALWAYS true in production
           sameSite: 'Lax',
           maxAge: 7 * 24 * 60 * 60 * 1000
         });
@@ -360,7 +447,7 @@ app.post('/api/auth/verify-otp', verifyLimiter, async (req, res) => {
 });
 
 // --- LOGOUT ROUTE ---
-app.post('/api/auth/logout', requireAuth, (req, res) => {
+app.post('/api/auth/logout', requireAuth, csrfProtection, (req, res) => {
   // H7: Increment tokenVersion to invalidate all active sessions for this user
   User.findOneAndUpdate(
     { email: req.user.email },
@@ -368,8 +455,8 @@ app.post('/api/auth/logout', requireAuth, (req, res) => {
   ).then(() => {
     res.clearCookie('am_token', {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'Strict'
+      secure: true,  // ALWAYS true in production
+      sameSite: 'Lax'
     });
     res.json({ success: true });
   }).catch(() => {
@@ -377,8 +464,58 @@ app.post('/api/auth/logout', requireAuth, (req, res) => {
   });
 });
 
+// --- ADMIN LOGIN ROUTE (Secure JWT Cookie) ---
+app.post('/api/admin/login', adminLoginLimiter, (req, res) => {
+  const { secret } = req.body;
+  
+  if (!secret) {
+    return res.status(400).json({ error: 'Admin secret is required' });
+  }
+  
+  try {
+    // H1: Use timing-safe comparison to prevent side-channel attacks
+    const valid = crypto.timingSafeEqual(
+      Buffer.from(secret),
+      Buffer.from(process.env.ADMIN_SECRET)
+    );
+    
+    if (!valid) {
+      return res.status(401).json({ error: 'Invalid admin secret' });
+    }
+    
+    // Generate JWT token with 4-hour expiration
+    const token = jwt.sign(
+      { role: 'admin', loginTime: new Date().toISOString() },
+      process.env.JWT_SECRET,
+      { expiresIn: '4h' }
+    );
+    
+    // Set secure httpOnly cookie (not accessible from JavaScript)
+    res.cookie('am_admin', token, {
+      httpOnly: true,
+      secure: true,  // ALWAYS true in production
+      sameSite: 'Lax',
+      maxAge: 4 * 60 * 60 * 1000 // 4 hours
+    });
+    
+    res.json({ success: true, message: 'Admin logged in successfully' });
+  } catch (err) {
+    res.status(500).json({ error: 'Login failed' });
+  }
+});
+
+// --- ADMIN LOGOUT ROUTE ---
+app.post('/api/admin/logout', adminLimiter, adminAuthJWT, (req, res) => {
+  res.clearCookie('am_admin', {
+    httpOnly: true,
+    secure: true,  // ALWAYS true in production
+    sameSite: 'Lax'
+  });
+  res.json({ success: true, message: 'Admin logged out successfully' });
+});
+
 // --- USER PROFILE ROUTE ---
-app.patch('/api/users/profile', requireAuth, [
+app.patch('/api/users/profile', requireAuth, csrfProtection, [
   body('discord')
     .optional()
     .trim()
@@ -492,7 +629,7 @@ app.post('/api/riot/sync-url', syncLimiter, async (req, res) => {
 });
 
 // --- VAULT ROUTES ---
-app.post('/api/vault/sync', requireAuth, syncLimiter, async (req, res) => {
+app.post('/api/vault/sync', requireAuth, syncLimiter, csrfProtection, async (req, res) => {
     try {
         const { redirectUrl } = req.body;
         const ownerEmail = req.user.email; // From verified JWT — not from body!
@@ -552,7 +689,7 @@ app.get('/api/vault/public/:slug', async (req, res) => {
     }
 });
 
-app.delete('/api/vault/:id', requireAuth, async (req, res) => {
+app.delete('/api/vault/:id', requireAuth, csrfProtection, async (req, res) => {
     try {
       const vault = await Vault.findById(req.params.id);
       if (!vault) return res.status(404).json({ error: 'Vault not found' });
@@ -601,7 +738,7 @@ app.get('/api/listings', async (req, res) => {
 });
 
 // --- REVEAL CONTACT ENDPOINT (Authenticated) ---
-app.post('/api/listings/:id/reveal', requireAuth, async (req, res) => {
+app.post('/api/listings/:id/reveal', requireAuth, csrfProtection, async (req, res) => {
   try {
     const listing = await Listing.findById(req.params.id)
       .select('sellerPhone sellerDiscord sellerId sellerName');
@@ -628,7 +765,7 @@ app.post('/api/listings/:id/view', viewLimiter, async (req, res) => {
   }
 });
 
-app.post('/api/listings', requireAuth, [
+app.post('/api/listings', requireAuth, csrfProtection, [
   body('title').trim().notEmpty().isLength({ max: 200 }).withMessage('Title is required and must be 200 characters or less'),
   body('price').isInt({ min: 1, max: 10000000 }).withMessage('Price must be an integer between 1 and 10,000,000'),
   body('region').isIn(['AP', 'NA', 'EU', 'KR', 'LATAM', 'BR']).withMessage('Invalid region'),
@@ -639,15 +776,15 @@ app.post('/api/listings', requireAuth, [
     .optional()
     .isArray({ max: 10 }).withMessage('Maximum 10 images allowed')
     .custom(arr => arr.every(url => typeof url === 'string' &&
-      (url.startsWith('https://') || url.startsWith('http://')) &&
+      url.startsWith('https://') &&
       url.length < 500
-    )).withMessage('All images must be valid http/https URLs under 500 characters'),
+    )).withMessage('All images must be valid HTTPS URLs under 500 characters'),
   body('skinTags').optional().isArray({ max: 100 }).custom(arr => {
     return arr.every(item => {
       try {
         const s = typeof item === 'string' ? JSON.parse(item) : item;
         return typeof s.name === 'string' && s.name.length < 100 && s.name.length > 0 &&
-               typeof s.icon === 'string' && (s.icon.startsWith('https://media.valorant-api.com/') || s.icon.startsWith('data:'));
+               typeof s.icon === 'string' && s.icon.startsWith('https://media.valorant-api.com/');
       } catch { return false; }
     });
   }).withMessage('Invalid skinTag format'),
@@ -656,7 +793,7 @@ app.post('/api/listings', requireAuth, [
       try {
         const s = typeof item === 'string' ? JSON.parse(item) : item;
         return typeof s.name === 'string' && s.name.length < 100 && s.name.length > 0 &&
-               typeof s.icon === 'string' && (s.icon.startsWith('https://media.valorant-api.com/') || s.icon.startsWith('data:'));
+               typeof s.icon === 'string' && s.icon.startsWith('https://media.valorant-api.com/');
       } catch { return false; }
     });
   }).withMessage('Invalid battlepassTag format'),
@@ -665,7 +802,7 @@ app.post('/api/listings', requireAuth, [
       try {
         const s = typeof item === 'string' ? JSON.parse(item) : item;
         return typeof s.name === 'string' && s.name.length < 100 && s.name.length > 0 &&
-               typeof s.icon === 'string' && (s.icon.startsWith('https://media.valorant-api.com/') || s.icon.startsWith('data:'));
+               typeof s.icon === 'string' && s.icon.startsWith('https://media.valorant-api.com/');
       } catch { return false; }
     });
   }).withMessage('Invalid agent format'),
@@ -698,7 +835,7 @@ app.post('/api/listings', requireAuth, [
   }
 });
 
-app.delete('/api/listings/:id', requireAuth, async (req, res) => {
+app.delete('/api/listings/:id', requireAuth, csrfProtection, async (req, res) => {
     try {
       const listing = await Listing.findById(req.params.id);
       if (!listing) return res.status(404).json({ error: 'Listing not found' });
@@ -717,8 +854,14 @@ app.delete('/api/listings/:id', requireAuth, async (req, res) => {
     }
 });
 
-app.put('/api/listings/:id', requireAuth, async (req, res) => {
+app.patch('/api/listings/:id/status', requireAuth, csrfProtection, [
+  body('status').isIn(['active', 'sold', 'deleted']).withMessage('Invalid status value')
+], async (req, res) => {
     try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+      
+      const { status } = req.body;
       const listing = await Listing.findById(req.params.id);
       if (!listing) return res.status(404).json({ error: 'Listing not found' });
       
@@ -727,16 +870,16 @@ app.put('/api/listings/:id', requireAuth, async (req, res) => {
         return res.status(403).json({ error: 'Forbidden: You can only update your own listings' });
       }
       
-      res.json(await Listing.findByIdAndUpdate(req.params.id, { status: 'sold' }, { new: true }));
+      res.json(await Listing.findByIdAndUpdate(req.params.id, { status }, { new: true }));
     } 
     catch (err) { 
-      console.error('❌ Update Listing Error:', err);
+      console.error('❌ Update Listing Status Error:', err);
       res.status(500).json({ error: 'An unexpected error occurred. Please try again.' }); 
     }
 });
 
 // --- ORDERS API ---
-app.post('/api/orders/inventory-edit', requireAuth, [
+app.post('/api/orders/inventory-edit', requireAuth, csrfProtection, [
   body('title').trim().notEmpty().isLength({ max: 200 }),
   body('price').isFloat({ min: 0, max: 10000000 }),
   body('transactionId').optional().trim().isLength({ max: 50 }),
@@ -764,17 +907,25 @@ app.post('/api/orders/inventory-edit', requireAuth, [
 });
 
 // --- ADMIN ROUTES ---
-app.get('/api/admin/listings', adminAuth, async (req, res) => {
+app.get('/api/admin/listings', adminLimiter, adminAuthJWT, async (req, res) => {
   try {
-    const listings = await Listing.find({}).lean().sort({ createdAt: -1 });
-    res.json(listings);
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, parseInt(req.query.limit) || 50);
+    const status = req.query.status || undefined; // filter by status if provided
+    const query = status ? { status } : {};
+    const [listings, total] = await Promise.all([
+      Listing.find(query).lean().sort({ createdAt: -1 })
+        .skip((page - 1) * limit).limit(limit),
+      Listing.countDocuments(query)
+    ]);
+    res.json({ listings, total, page, pages: Math.ceil(total / limit) });
   } catch (err) {
     console.error('❌ Admin Listings Fetch Error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-app.get('/api/admin/orders', adminAuth, async (req, res) => {
+app.get('/api/admin/orders', adminLimiter, adminAuthJWT, async (req, res) => {
     try { res.json(await Order.find().sort({ createdAt: -1 })); } 
     catch (err) { 
       console.error('❌ Admin Orders Fetch Error:', err);
@@ -782,7 +933,7 @@ app.get('/api/admin/orders', adminAuth, async (req, res) => {
     }
 });
 
-app.put('/api/admin/orders/:id/complete', adminAuth, async (req, res) => {
+app.put('/api/admin/orders/:id/complete', adminLimiter, adminAuthJWT, async (req, res) => {
     try { 
         await Order.findByIdAndUpdate(req.params.id, { status: 'completed' });
         res.json({ success: true }); 
@@ -792,7 +943,7 @@ app.put('/api/admin/orders/:id/complete', adminAuth, async (req, res) => {
     }
 });
 
-app.put('/api/admin/listings/:id/approve', adminAuth, async (req, res) => {
+app.put('/api/admin/listings/:id/approve', adminLimiter, adminAuthJWT, async (req, res) => {
     try { 
         await Listing.findByIdAndUpdate(req.params.id, { status: 'active' });
         res.json({ success: true }); 
@@ -802,7 +953,7 @@ app.put('/api/admin/listings/:id/approve', adminAuth, async (req, res) => {
     }
 });
 
-app.delete('/api/admin/listings/:id', adminAuth, async (req, res) => {
+app.delete('/api/admin/listings/:id', adminLimiter, adminAuthJWT, async (req, res) => {
     try {
         await Listing.findByIdAndDelete(req.params.id);
         res.json({ success: true });
@@ -810,6 +961,80 @@ app.delete('/api/admin/listings/:id', adminAuth, async (req, res) => {
       console.error('❌ Admin Listing Delete Error:', err);
       res.status(500).json({ error: 'An unexpected error occurred. Please try again.' }); 
     }
+});
+
+// --- CONFIG ENDPOINT (Public) ---
+app.get('/api/config/payment-upi', (req, res) => {
+  const upiId = process.env.PAYMENT_UPI_ID || 'seller@bank';
+  res.json({
+    upi: upiId,
+    lastUpdated: new Date().toISOString()
+  });
+});
+
+// --- DYNAMIC SITEMAP ---
+app.get('/sitemap.xml', async (req, res) => {
+  try {
+    // Get the domain based on Node environment
+    const domain = process.env.NODE_ENV === 'production'
+      ? 'https://asta-mart.in'
+      : 'http://localhost:3000'; // Change if frontend is on different port
+
+    // Static pages
+    const staticPages = [
+      { path: '/', priority: '1.0', changefreq: 'weekly' },
+      { path: '/browse.html', priority: '0.9', changefreq: 'daily' },
+      { path: '/contact.html', priority: '0.7', changefreq: 'monthly' },
+      { path: '/privacy.html', priority: '0.6', changefreq: 'yearly' },
+      { path: '/terms.html', priority: '0.6', changefreq: 'yearly' },
+      { path: '/faq.html', priority: '0.6', changefreq: 'monthly' },
+      { path: '/compare.html', priority: '0.8', changefreq: 'daily' }
+    ];
+
+    // Get all active listings from database
+    const listings = await Listing.find({ status: 'active' }).lean();
+    const listingPages = listings.map(l => ({
+      path: `/listing.html?id=${l._id}`,
+      priority: '0.8',
+      changefreq: 'weekly',
+      lastmod: l.updatedAt ? l.updatedAt.toISOString().split('T')[0] : null
+    }));
+
+    // Build XML
+    let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+    xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
+
+    // Add static pages with current date
+    const today = new Date().toISOString().split('T')[0];
+    staticPages.forEach(page => {
+      xml += '  <url>\n';
+      xml += `    <loc>${domain}${page.path}</loc>\n`;
+      xml += `    <lastmod>${today}</lastmod>\n`;
+      xml += `    <changefreq>${page.changefreq}</changefreq>\n`;
+      xml += `    <priority>${page.priority}</priority>\n`;
+      xml += '  </url>\n';
+    });
+
+    // Add listing pages
+    listingPages.forEach(page => {
+      xml += '  <url>\n';
+      xml += `    <loc>${domain}${page.path}</loc>\n`;
+      if (page.lastmod) {
+        xml += `    <lastmod>${page.lastmod}</lastmod>\n`;
+      }
+      xml += `    <changefreq>${page.changefreq}</changefreq>\n`;
+      xml += `    <priority>${page.priority}</priority>\n`;
+      xml += '  </url>\n';
+    });
+
+    xml += '</urlset>';
+
+    res.type('application/xml');
+    res.send(xml);
+  } catch (err) {
+    console.error('❌ Sitemap Generation Error:', err);
+    res.status(500).json({ error: 'Failed to generate sitemap' });
+  }
 });
 
 const PORT = process.env.PORT || 5000;

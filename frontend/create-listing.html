@@ -3,11 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="List your Valorant account for sale on Asta Mart. Sync inventory automatically and reach verified buyers.">
 <title>List Your Account — Asta Mart</title>
 <!-- M6: Favicon -->
 <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="64x64" href="favicon-64x64.png">
+<link rel="apple-touch-icon" sizes="180x180" href="asta_mart_logo_transparent.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
@@ -346,7 +348,6 @@
   </div>
 </div>
 
-<script src="data.js"></script>
 <script src="app.js"></script>
 <script src="effects.js"></script>
 
@@ -504,44 +505,64 @@ async function processRiotURL() {
 }
 
 async function submitListing() {
-  const price = parseInt(document.getElementById('l-price').value || '0');
-  const emailVal = document.getElementById('l-email').value;
-  const wantsEdit = document.getElementById('l-upsell')?.checked || false;
+  try {
+    const title = document.getElementById('l-title').value || '';
+    const price = parseInt(document.getElementById('l-price').value || '0');
+    const emailVal = document.getElementById('l-email').value;
+    const wantsEdit = document.getElementById('l-upsell')?.checked || false;
 
-  if (price <= 0) return alert('Please enter a valid asking price.');
-  if (!emailVal) return alert('Please select an Email Status option.');
+    // Client-side validation
+    const errors = [];
+    if (!title || title.trim().length === 0 || title.length > 200) {
+      errors.push('Title is required and must be 200 characters or less');
+    }
+    if (price <= 0 || price > 10000000) {
+      errors.push('Price must be between ₹1 and ₹10,000,000');
+    }
+    if (!emailVal) {
+      errors.push('Please select an Email Status option');
+    }
+    if (!parsedRiotData || !parsedRiotData.rank) {
+      errors.push('Account data is required. Please sync your account first');
+    }
 
-  const user = JSON.parse(localStorage.getItem('am_user'));
-  const profile = JSON.parse(localStorage.getItem('am_seller_profile') || '{}');
-  
-  const complexSkinArray = (parsedRiotData.premiumSkins || []).map(s => JSON.stringify({ name: s.name, icon: s.icon, tier: s.tier }));
-  const complexBpArray = (parsedRiotData.battlepassSkins || []).map(s => JSON.stringify({ name: s.name, icon: s.icon, tier: 'battlepass' }));
-  const complexAgentArray = (parsedRiotData.unlockedAgents || []).map(a => JSON.stringify({ name: a.name, icon: a.icon }));
+    // Show first error and stop submission
+    if (errors.length > 0) {
+      showToast(errors[0], 'error');
+      return;
+    }
 
-  const limitedArr = parsedRiotData.limitedSkins || [];
-  const hasLimited = limitedArr.length > 0;
-  const limitedDetailStr = hasLimited ? limitedArr.map(s => s.name).join(', ') : '';
+    const user = JSON.parse(localStorage.getItem('am_user'));
+    const profile = JSON.parse(localStorage.getItem('am_seller_profile') || '{}');
+    
+    const complexSkinArray = (parsedRiotData.premiumSkins || []).map(s => JSON.stringify({ name: s.name, icon: s.icon, tier: s.tier }));
+    const complexBpArray = (parsedRiotData.battlepassSkins || []).map(s => JSON.stringify({ name: s.name, icon: s.icon, tier: 'battlepass' }));
+    const complexAgentArray = (parsedRiotData.unlockedAgents || []).map(a => JSON.stringify({ name: a.name, icon: a.icon }));
 
-  const listing = {
-    sellerId: user.email,
-    sellerName: user.name,
-    sellerPhone: profile.whatsapp || '',  
-    sellerDiscord: profile.discord || '', 
-    title: document.getElementById('l-title').value,
-    price: price,
-    emailAccess: emailVal === 'yes',
-    banHistory: document.getElementById('l-ban').value === 'yes',
-    status: 'active',
-    region: parsedRiotData.displayRegion || parsedRiotData.region,
-    rank: parsedRiotData.rank,
-    peakRank: parsedRiotData.peakRank,
-    level: parsedRiotData.level,
-    skinCount: parsedRiotData.premiumSkins ? parsedRiotData.premiumSkins.length : 0, 
-    skinTags: complexSkinArray, 
-    battlepassTags: complexBpArray, 
-    agents: complexAgentArray,  
-    agentsCount: parsedRiotData.agentsCount,
-    vpBalance: parsedRiotData.vpBalance,
+    const limitedArr = parsedRiotData.limitedSkins || [];
+    const hasLimited = limitedArr.length > 0;
+    const limitedDetailStr = hasLimited ? limitedArr.map(s => s.name).join(', ') : '';
+
+    const listing = {
+      sellerId: user.email,
+      sellerName: user.name,
+      sellerPhone: profile.whatsapp || '',  
+      sellerDiscord: profile.discord || '', 
+      title: title,
+      price: price,
+      emailAccess: emailVal === 'yes',
+      banHistory: document.getElementById('l-ban').value === 'yes',
+      status: 'active',
+      region: parsedRiotData.displayRegion || parsedRiotData.region,
+      rank: parsedRiotData.rank,
+      peakRank: parsedRiotData.peakRank,
+      level: parsedRiotData.level,
+      skinCount: parsedRiotData.premiumSkins ? parsedRiotData.premiumSkins.length : 0, 
+      skinTags: complexSkinArray, 
+      battlepassTags: complexBpArray, 
+      agents: complexAgentArray,  
+      agentsCount: parsedRiotData.agentsCount,
+      vpBalance: parsedRiotData.vpBalance,
     bpCompleted: parsedRiotData.battlepassSkins ? parsedRiotData.battlepassSkins.length : 0, 
     limited: hasLimited,
     limitedDetail: limitedDetailStr, 
@@ -556,12 +577,17 @@ async function submitListing() {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(listing)
-    };
+    });
     
-    if (!res.ok) throw new Error('Failed to save to database');
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.error || 'Failed to save to database');
+    }
 
+    const data = await res.json();
     document.getElementById('step3').classList.add('hidden');
     document.getElementById('stepSuccess').classList.remove('hidden');
+    showToast('✅ Listing published successfully!', 'success');
     
     if (wantsEdit) {
         const premCount = parsedRiotData.premiumSkins ? parsedRiotData.premiumSkins.length : 0;
@@ -592,7 +618,7 @@ async function submitListing() {
                 <p style="font-size: 14px; color: var(--white-dim); margin-bottom: 15px;">To receive your custom edit on your listing and via WhatsApp/Discord within 1-2 days, pay the amount below via UPI.</p>
                 
                 <div style="font-family: var(--font-display); font-size: 42px; color: var(--red); font-weight: 900;">₹${calcPrice}</div>
-                <div style="font-family: var(--font-mono); font-size: 20px; color: #fff; margin: 15px 0;">UPI ID: <strong style="color: var(--accent-cyan);">navay@fam</strong></div>
+                <div style="font-family: var(--font-mono); font-size: 20px; color: #fff; margin: 15px 0;">UPI ID: <strong style="color: var(--accent-cyan);" id="dynamicUpiId">Loading...</strong></div>
                 
                 <p style="font-size: 12px; color: var(--white-dim);">*Take a screenshot of your payment. Our team will verify and fulfill your order automatically.</p>
             </div>
@@ -605,9 +631,24 @@ async function submitListing() {
     }
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    
+    // Load UPI ID dynamically
+    if (document.getElementById('dynamicUpiId')) {
+      fetch(`${API_BASE_URL}/config/payment-upi`)
+        .then(r => r.json())
+        .then(data => {
+          const el = document.getElementById('dynamicUpiId');
+          if (el) el.textContent = data.upi || 'Contact seller';
+        })
+        .catch(err => {
+          console.error('Failed to load UPI:', err);
+          const el = document.getElementById('dynamicUpiId');
+          if (el) el.textContent = 'Contact seller for payment details';
+        });
+    }
   } catch (err) {
-    console.error(err);
-    alert('Error saving listing. Please ensure the backend Node.js server is running.');
+    console.error('Submit listing error:', err);
+    showToast(err.message || 'Error saving listing. Please ensure all required fields are filled.', 'error');
   }
 }
 

@@ -8,6 +8,7 @@
 <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="64x64" href="favicon-64x64.png">
+<link rel="apple-touch-icon" sizes="180x180" href="asta_mart_logo_transparent.png">
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 <style>
@@ -39,11 +40,11 @@
 <!-- ADMIN LOGIN GATE -->
 <div id="adminLoginGate" style="max-width:400px;margin:100px auto;text-align:center;padding:40px;border:1px solid rgba(63,233,255,0.3);border-radius:12px;background:rgba(0,255,240,0.02);">
   <h2 style="font-family:var(--font-display);font-size:28px;color:#fff;margin-bottom:10px;">ASTA ADMIN</h2>
-  <p style="color:var(--white-dim);margin-bottom:24px;font-size:14px;">Enter your admin key to continue</p>
-  <input type="password" id="adminKeyInput" placeholder="Enter admin secret key" 
-    onkeypress="if(event.key==='Enter') submitAdminKey()"
+  <p style="color:var(--white-dim);margin-bottom:24px;font-size:14px;">Enter your admin secret to continue</p>
+  <input type="password" id="adminKeyInput" placeholder="Enter admin secret" 
+    onkeypress="if(event.key==='Enter') submitAdminSecret()"
     style="width:100%;padding:12px 15px;margin:16px 0;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:6px;color:#fff;font-family:var(--font-ui);font-size:14px;box-sizing:border-box;">
-  <button class="btn-primary" onclick="submitAdminKey()" style="width:100%;padding:12px;margin-top:8px;cursor:pointer;">Authenticate</button>
+  <button class="btn-primary" onclick="submitAdminSecret()" style="width:100%;padding:12px;margin-top:8px;cursor:pointer;">Authenticate</button>
   <a href="index.html" style="display:block;margin-top:16px;color:var(--white-dim);text-decoration:none;font-size:13px;">← Back to Site</a>
 </div>
 
@@ -141,67 +142,82 @@ function sanitize(str) {
     .replace(/'/g, '&#039;');
 }
 
-// Prompt for admin token on page load - REPLACED WITH FORM BELOW
+// Initialize admin panel - check if already authenticated via cookie
 window.addEventListener('DOMContentLoaded', () => {
-  if (sessionStorage.getItem('adminToken')) {
-    adminToken = sessionStorage.getItem('adminToken');
-    document.getElementById('adminLoginGate').style.display = 'none';
-    document.getElementById('adminDashboard').style.display = 'block';
-    loadAllAdminData();
-  }
+  checkAdminSession();
 });
 
-async function submitAdminKey() {
-  const keyInput = document.getElementById('adminKeyInput');
-  const key = keyInput.value.trim();
+// Check if admin still has a valid session (cookie will be verified by server)
+async function checkAdminSession() {
+  try {
+    const res = await fetch(`${API_BASE_URL}/admin/listings`, {
+      credentials: 'include'
+    });
+    
+    if (res.ok) {
+      // Valid session exists - show dashboard
+      document.getElementById('adminLoginGate').style.display = 'none';
+      document.getElementById('adminDashboard').style.display = 'block';
+      loadAllAdminData();
+    } else {
+      // No valid session - show login gate
+      document.getElementById('adminLoginGate').style.display = 'block';
+      document.getElementById('adminDashboard').style.display = 'none';
+    }
+  } catch (err) {
+    console.error('Session check error:', err);
+    document.getElementById('adminLoginGate').style.display = 'block';
+  }
+}
+
+async function submitAdminSecret() {
+  const secretInput = document.getElementById('adminKeyInput');
+  const secret = secretInput.value.trim();
   
-  if (!key) {
-    alert('Please enter an admin key');
+  if (!secret) {
+    alert('Please enter the admin secret');
     return;
   }
   
   try {
-    // Test the key by making a simple authenticated request
-    const res = await fetch(`${API_BASE_URL}/admin/listings`, {
-      method: 'GET',
-      headers: { 
-        'Content-Type': 'application/json',
-        'X-Admin-Token': key 
-      },
-      credentials: 'include'
+    const res = await fetch(`${API_BASE_URL}/admin/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ secret })
     });
     
+    const data = await res.json();
+    
     if (!res.ok) {
-      alert('Invalid admin key');
-      keyInput.value = '';
+      alert(data.error || 'Login failed');
+      secretInput.value = '';
       return;
     }
     
-    // Key is valid - store in sessionStorage and show dashboard
-    sessionStorage.setItem('adminToken', key);
-    adminToken = key;
-    
+    // Successful login - httpOnly cookie is set automatically by server
     document.getElementById('adminLoginGate').style.display = 'none';
     document.getElementById('adminDashboard').style.display = 'block';
+    secretInput.value = '';
     
     loadAllAdminData();
   } catch (err) {
-    console.error('Admin auth error:', err);
-    alert('Authentication failed');
+    console.error('Admin login error:', err);
+    alert('Login failed. Ensure backend is running.');
   }
 }
 
-function getAdminHeaders() {
-  return {
-    'Content-Type': 'application/json',
-    'X-Admin-Token': adminToken
-  };
-}
-
-function logoutAdmin() {
-  sessionStorage.removeItem('adminToken');
-  adminToken = null;
-  location.href = 'index.html';
+async function logoutAdmin() {
+  try {
+    await fetch(`${API_BASE_URL}/admin/logout`, {
+      method: 'POST',
+      credentials: 'include'
+    });
+  } catch (err) {
+    console.error('Logout error:', err);
+  } finally {
+    location.href = 'index.html';
+  }
 }
 
 function switchAdminTab(button, tab) {
@@ -254,7 +270,6 @@ async function loadAllAdminData() {
 
         // Render Orders
         const resOrders = await fetch(`${API_BASE_URL}/admin/orders`, {
-            headers: getAdminHeaders(),
             credentials: 'include'
         });
         const orders = await resOrders.json();
@@ -283,12 +298,11 @@ async function approveListing(id) {
     try {
         const response = await fetch(`${API_BASE_URL}/admin/listings/${id}/approve`, { 
             method: 'PUT',
-            headers: getAdminHeaders(),
+            headers: { 'Content-Type': 'application/json' },
             credentials: 'include'
         });
         if (response.status === 401) {
             alert('Session expired. Please reload and re-enter your admin secret.');
-            sessionStorage.removeItem('adminToken');
             location.reload();
             return;
         }
@@ -302,12 +316,11 @@ async function banListing(id) {
     try {
         const response = await fetch(`${API_BASE_URL}/admin/listings/${id}`, { 
             method: 'DELETE',
-            headers: getAdminHeaders(),
+            headers: { 'Content-Type': 'application/json' },
             credentials: 'include'
         });
         if (response.status === 401) {
             alert('Session expired. Please reload and re-enter your admin secret.');
-            sessionStorage.removeItem('adminToken');
             location.reload();
             return;
         }
@@ -321,12 +334,11 @@ async function markOrderCompleted(id) {
     try {
         const response = await fetch(`${API_BASE_URL}/admin/orders/${id}/complete`, { 
             method: 'PUT',
-            headers: getAdminHeaders(),
+            headers: { 'Content-Type': 'application/json' },
             credentials: 'include'
         });
         if (response.status === 401) {
             alert('Session expired. Please reload and re-enter your admin secret.');
-            sessionStorage.removeItem('adminToken');
             location.reload();
             return;
         }

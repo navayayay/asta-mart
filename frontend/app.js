@@ -4,8 +4,64 @@ const API_BASE_URL = (window.location.hostname === 'localhost' || window.locatio
   : 'https://api.asta-mart.in/api';
 // Only log API endpoint in development/local environments
 if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.startsWith('192.168.') || window.location.protocol === 'file:') {
-  console.log('🔌 API_BASE_URL:', API_BASE_URL, '| Hostname:', window.location.hostname);
+// Development-only logging to avoid console spam in production
+const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const log = (...a) => isDev && console.log(...a);
+const warn = (...a) => isDev && console.warn(...a);
+const logErr = (...a) => console.error(...a); // Always log real errors
+
+log('🔌 API_BASE_URL:', API_BASE_URL, '| Hostname:', window.location.hostname);
 }
+
+// ===================== FORM VALIDATION HELPERS =====================
+function validateEmail(email) {
+  const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return re.test(email);
+}
+
+function validatePassword(pwd) {
+  return pwd.length >= 6;  // Minimum 6 characters
+}
+
+function validatePrice(price) {
+  const p = parseFloat(price);
+  return !isNaN(p) && p > 0 && p <= 10000000;
+}
+
+function validateTitle(title) {
+  return title && title.trim().length > 0 && title.length <= 200;
+}
+
+function validateListingForm(data) {
+  const errors = [];
+  if (!validateTitle(data.title)) {
+    errors.push('Title is required and must be 200 characters or less');
+  }
+  if (!validatePrice(data.price)) {
+    errors.push('Price must be between ₹1 and ₹10,000,000');
+  }
+  if (!['AP', 'NA', 'EU', 'KR', 'LATAM', 'BR'].includes(data.region)) {
+    errors.push('Valid region is required');
+  }
+  return errors;
+}
+
+// ===================== TOAST NOTIFICATIONS =====================
+function showToast(msg, type = 'info', duration = 4000) {
+  const existing = document.querySelector('.am-toast');
+  if (existing) existing.remove();
+  const t = document.createElement('div');
+  t.className = 'am-toast';
+  t.textContent = msg;
+  const bgColor = type === 'error' ? '#E24B4A' : type === 'success' ? '#3B6D11' : '#185FA5';
+  t.style.cssText = `position:fixed;bottom:24px;right:24px;z-index:9999;
+    padding:12px 20px;border-radius:8px;font-family:sans-serif;font-size:14px;
+    background:${bgColor};color:#fff;box-shadow:0 4px 16px rgba(0,0,0,0.3);
+    max-width:340px;word-wrap:break-word;`;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), duration);
+}
+
 let compareList = JSON.parse(sessionStorage.getItem('am_compare') || '[]');
 let GLOBAL_LISTINGS = [];
 
@@ -30,67 +86,139 @@ function isSafeIconUrl(url) {
   } catch {
     return false;
   }
+}
+
+function isSafeImageUrl(url) {
+  if (!url || typeof url !== 'string') return false;
+  try {
+    const u = new URL(url);
+    // Allow HTTPS URLs from most sources (backend already validates)
+    // but ensure it's not a javascript: or data: protocol
+    return u.protocol === 'https:' && url.length < 500;
+  } catch {
+    return false;
+  }
 } 
 
 // ===================== INIT =====================
 document.addEventListener('DOMContentLoaded', async () => {
-  // M2: Only fetch listings if page actually needs them
-  const needsListings = document.getElementById('listingsGrid') ||
-    document.getElementById('homeCarousel') ||
-    document.getElementById('listingDetail') ||
-    document.getElementById('savedGrid') ||
-    document.getElementById('compareTable') ||
-    document.getElementById('myListingsGrid');
+  try {
+    // M2: Only fetch listings if page actually needs them
+    const needsListings = document.getElementById('listingsGrid') ||
+      document.getElementById('homeCarousel') ||
+      document.getElementById('listingDetail') ||
+      document.getElementById('savedGrid') ||
+      document.getElementById('compareTable') ||
+      document.getElementById('myListingsGrid');
 
-  if (needsListings) await fetchAllListingsFromDB();
-  
-  initAuth();
-  updateCartBadge(); 
-  renderCompareTray();
-  
-  // Initialize video effect only on index page (where #heroSection exists)
-  const heroSection = document.getElementById('heroSection');
-  if (heroSection) {
-    // If page is already loaded, call immediately; otherwise wait for load event
-    if (document.readyState === 'complete' || document.readyState === 'interactive') {
-      console.log('🎬 Page already loaded, initializing video effect...');
-      setTimeout(() => {
-        if (typeof initVideoScrollEffects === 'function') {
-          initVideoScrollEffects();
+    if (needsListings) {
+      try {
+        await fetchAllListingsFromDB();
+      } catch (err) {
+        logErr('Failed to load listings, continuing with empty state:', err);
+        GLOBAL_LISTINGS = [];  // Continue with empty state
+      }
+    }
+    
+    try {
+      initAuth();
+    } catch (err) {
+      logErr('Auth init failed:', err);
+    }
+    
+    try {
+      // Fetch CSRF token for state-changing requests
+      await fetchCSRFToken();
+    } catch (err) {
+      logErr('CSRF token fetch failed:', err);
+    }
+    
+    try {
+      updateCartBadge(); 
+    } catch (err) {
+      logErr('Cart badge update failed:', err);
+    }
+    
+    try {
+      renderCompareTray();
+    } catch (err) {
+      logErr('Compare tray render failed:', err);
+    }
+    
+    // Initialize video effect only on index page (where #heroSection exists)
+    const heroSection = document.getElementById('heroSection');
+    if (heroSection) {
+      try {
+        // If page is already loaded, call immediately; otherwise wait for load event
+        if (document.readyState === 'complete' || document.readyState === 'interactive') {
+          log('🍼 Page already loaded, initializing video effect...');
+          setTimeout(() => {
+            if (typeof initVideoScrollEffects === 'function') {
+              initVideoScrollEffects();
+            } else {
+              logErr('❌ initVideoScrollEffects function not found');
+            }
+          }, 100);
         } else {
-          console.error('❌ initVideoScrollEffects function not found');
+          window.addEventListener('load', () => {
+            log('🍼 Window load event fired, initializing video effect...');
+            setTimeout(() => {
+              if (typeof initVideoScrollEffects === 'function') {
+                initVideoScrollEffects();
+              } else {
+                logErr('❌ initVideoScrollEffects function not found');
+              }
+            }, 300);
+          }, { once: true });
         }
-      }, 100);
-    } else {
-      window.addEventListener('load', () => {
-        console.log('🎬 Window load event fired, initializing video effect...');
-        setTimeout(() => {
-          if (typeof initVideoScrollEffects === 'function') {
-            initVideoScrollEffects();
-          } else {
-            console.error('❌ initVideoScrollEffects function not found');
-          }
-        }, 300);
-      }, { once: true });
+      } catch (err) {
+        logErr('Video scroll effect failed:', err);
+      }
     }
-  }
 
-  // Render main grid (if on browse/dashboard)
-  if (document.getElementById('listingsGrid')) {
-    renderListingsGrid('listingsGrid', getAllListings().slice(0, 6));
-    updateStatCount();
-  }
-
-  // Render Home Page Carousel
-  const carousel = document.getElementById('homeCarousel');
-  if (carousel) {
-    const newestListings = getAllListings().slice(0, 5);
-    if (newestListings.length > 0) {
-      carousel.innerHTML = newestListings.map(renderListingCard).join('');
-    } else {
-      carousel.innerHTML = '<div class="status-message">No new listings at the moment.</div>';
+    // Render main grid (if on browse/dashboard)
+    try {
+      if (document.getElementById('listingsGrid')) {
+        renderListingsGrid('listingsGrid', (getAllListings() || []).slice(0, 6));
+        updateStatCount();
+      }
+    } catch (err) {
+      logErr('Failed to render listings grid:', err);
     }
+
+    // Render Home Page Carousel
+    try {
+      const carousel = document.getElementById('homeCarousel');
+      if (carousel) {
+        const newestListings = (getAllListings() || []).slice(0, 5);
+        if (newestListings && newestListings.length > 0) {
+          carousel.innerHTML = newestListings.map(renderListingCard).join('');
+        } else {
+          carousel.innerHTML = '<div class="status-message">No new listings at the moment.</div>';
+        }
+      }
+    } catch (err) {
+      logErr('Failed to render carousel:', err);
+    }
+  } catch (err) {
+    logErr('Critical initialization error:', err);
+    // Show fallback UI
+    const fallback = document.createElement('div');
+    fallback.style.cssText = 'padding:40px; text-align:center; color:#fff; background:#000;';
+    fallback.innerHTML = '<h2>⚠️ Server Connection Error</h2><p>Please refresh the page.</p>';
+    document.body.innerHTML = '';
+    document.body.appendChild(fallback);
   }
+});
+
+// ===================== GLOBAL ERROR HANDLERS =====================
+window.addEventListener('error', (event) => {
+  logErr('Uncaught error:', event.error);
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+  logErr('Unhandled promise rejection:', event.reason);
+  showToast('An unexpected error occurred. Please refresh.', 'error');
 });
 
 // ===================== DATABASE FETCHING =====================
@@ -102,7 +230,7 @@ async function fetchAllListingsFromDB() {
     // Backend returns {listings: [...], total, page, pages}
     GLOBAL_LISTINGS = Array.isArray(data) ? data : (data.listings || []);
   } catch (error) {
-    console.error('Failed to fetch listings from backend:', error);
+    logErr('Failed to fetch listings from backend:', error);
     // M1: Show empty state instead of fake sample data
     GLOBAL_LISTINGS = [];
   }
@@ -113,12 +241,12 @@ function getAllListings() {
 }
 
 function getListing(id) {
-  return getAllListings().find(l => l._id === id || l.id === parseInt(id));
+  return (getAllListings() || []).find(l => l?._id === id || l?.id === parseInt(id));
 }
 
 function updateStatCount() {
   const el = document.getElementById('stat-listings');
-  if (el) el.textContent = getAllListings().length;
+  if (el) el.textContent = (getAllListings() || []).length;
 }
 
 // ===================== FLAWLESS GSAP SCROLL SYNC =====================
@@ -128,19 +256,19 @@ function updateStatCount() {
 function initVideoScrollEffects() {
   const img = document.getElementById('scrubImage');
   if (!img) {
-    console.warn('❌ Image element not found');
+    warn('❌ Image element not found');
     return;
   }
   if (typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined') {
-    console.warn('❌ GSAP or ScrollTrigger not loaded');
+    warn('❌ GSAP or ScrollTrigger not loaded');
     return;
   }
   if (typeof Lenis === 'undefined') {
-    console.warn('❌ Lenis not loaded');
+    warn('❌ Lenis not loaded');
     return;
   }
   
-  console.log('🎬 Initializing frame-based scroll effect...');
+  log('🎅 Initializing frame-based scroll effect...');
   
   const totalFrames = 39; // Total extracted frames
   const framePath = 'frames/frame_';
@@ -168,7 +296,7 @@ function initVideoScrollEffects() {
   
   const startGSAPTimeline = () => {
     try {
-      console.log('📹 Starting GSAP frame timeline...');
+      log('📹 Starting GSAP frame timeline...');
       
       let tl = gsap.timeline({ 
         scrollTrigger: { 
@@ -183,10 +311,6 @@ function initVideoScrollEffects() {
             const frameNum = Math.ceil(self.progress * totalFrames);
             const frameIndex = Math.max(1, Math.min(frameNum, totalFrames));
             img.src = `${framePath}${String(frameIndex).padStart(4, '0')}.jpg`;
-            
-            if (ScrollTrigger.getAll().length > 0) {
-              ScrollTrigger.getAll()[0].refresh(); 
-            }
           }
         } 
       });
@@ -203,14 +327,28 @@ function initVideoScrollEffects() {
         animDuration * 0.01 
       );
       
-      console.log('✅ GSAP frame timeline created successfully', { totalFrames });
+      log('✅ GSAP frame timeline created successfully', { totalFrames });
+      
+      // Preload all frames after timeline is set up
+      preloadFrames(totalFrames, framePath);
     } catch (err) {
-      console.error('❌ Error initializing GSAP timeline:', err);
+      logErr('❌ Error initializing GSAP timeline:', err);
+    }
+  };
+  
+  // Preload frames immediately (before scroll animation starts)
+  const preloadFrames = (total, path) => {
+    for (let i = 1; i <= total; i++) {
+      const link = document.createElement('link');
+      link.rel = 'prefetch';
+      link.as = 'image';
+      link.href = `${path}${String(i).padStart(4, '0')}.jpg`;
+      document.head.appendChild(link);
     }
   };
   
   // Start timeline with small delay to ensure DOM is ready
-  console.log('📌 Starting frame animation...');
+  log('📋 Starting frame animation...');
   setTimeout(startGSAPTimeline, 100);
 }
 
@@ -227,7 +365,7 @@ function initAuth() {
     userEl?.classList.remove('hidden');
     if (cartEl) cartEl.style.display = 'flex'; // Show cart when logged in
     if (vaultEl) vaultEl.style.display = 'block'; // Show vault when logged in
-    if (avatarEl) avatarEl.textContent = user.name ? user.name[0].toUpperCase() : 'U';
+    if (avatarEl) avatarEl.textContent = user?.name?.[0]?.toUpperCase?.() || 'U';
   } else {
     guestEl?.classList.remove('hidden');
     userEl?.classList.add('hidden');
@@ -259,7 +397,7 @@ async function sendOTP(type) {
   const email = emailEl?.value.trim().toLowerCase();
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   
-  if (!email || !emailRegex.test(email)) { alert('Please enter a valid email address.'); return; }
+  if (!email || !emailRegex.test(email)) { showToast('Please enter a valid email address.', 'error'); return; }
 
   try {
     const res = await fetch(`${API_BASE_URL}/auth/send-otp`, {
@@ -272,9 +410,9 @@ async function sendOTP(type) {
     if (!res.ok) throw new Error(data.error);
 
     document.getElementById(type + 'OTPSection')?.classList.remove('hidden');
-    alert('Verification code sent! Please check your email inbox (including spam folder).');
+    showToast('Verification code sent! Please check your email inbox (including spam folder).', 'success');
   } catch (err) {
-    alert(err.message);
+    showToast(err.message, 'error');
   }
 }
 
@@ -304,8 +442,28 @@ async function verifyOTP(type) {
       location.reload();
     }
   } catch (err) {
-    alert(err.message);
+    showToast(err.message, 'error');
   }
+}
+
+// Fetch and cache CSRF token for state-changing requests
+async function fetchCSRFToken() {
+  try {
+    const res = await fetch(`${API_BASE_URL}/csrf-token`, {
+      method: 'GET',
+      credentials: 'include'
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.csrfToken) {
+        sessionStorage.setItem('csrf_token', data.csrfToken);
+        return data.csrfToken;
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to fetch CSRF token:', err);
+  }
+  return null;
 }
 
 // Get authenticated headers (token is in httpOnly cookie, sent automatically by browser)
@@ -316,6 +474,17 @@ function getAuthHeaders() {
 
 // Global fetch wrapper that handles 401 (expired token) responses
 async function authFetch(url, options = {}) {
+  // Fetch CSRF token for state-changing requests (POST, PUT, PATCH, DELETE)
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes((options.method || 'GET').toUpperCase())) {
+    const csrfToken = sessionStorage.getItem('csrf_token') || await fetchCSRFToken();
+    if (csrfToken) {
+      options.headers = {
+        ...(options.headers || {}),
+        'CSRF-Token': csrfToken
+      };
+    }
+  }
+  
   const res = await fetch(url, {
     ...options,
     headers: { ...getAuthHeaders(), ...options.headers },
@@ -324,7 +493,7 @@ async function authFetch(url, options = {}) {
   
   // Check if token has expired
   if (res.status === 401) {
-    console.warn('⚠️ Session expired (401 Unauthorized)');
+    warn('⚠️ Session expired (401 Unauthorized)');
     localStorage.removeItem('am_user');
     openAuth('login');
     throw new Error('Session expired. Please log in again.');
@@ -340,7 +509,7 @@ function logout() {
     method: 'POST',
     credentials: 'include'
   })
-    .catch(err => console.error('Logout error:', err))
+    .catch(err => logErr('Logout error:', err))
     .finally(() => location.href = 'index.html');
 }
 // httpOnly cookie is cleared by server on logout
@@ -406,11 +575,11 @@ function timeAgo(dateStr) {
 }
 
 // ===================== INVENTORY UI GENERATORS =====================
-window.switchInvTab = function(tabId) {
+window.switchInvTab = function(tabId, el) {
   document.querySelectorAll('.inv-tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.inv-content').forEach(c => c.classList.remove('active'));
-  event.currentTarget.classList.add('active');
-  document.getElementById('tab-' + tabId).classList.add('active');
+  el.classList.add('active');
+  document.getElementById('tab-' + tabId)?.classList.add('active');
 };
 
 function generateSkinsGrid(skinTags) {
@@ -425,8 +594,11 @@ function generateSkinsGrid(skinTags) {
           
           // C2: Sanitize fields + H9: Validate icon URL against allowlist
           const safeIcon = isSafeIconUrl(skinObj.icon) ? sanitize(skinObj.icon) : '';
+          const skin_id = `skin-${sanitize(skinObj.name).replace(/[^a-z0-9]/gi, '')}`;
           return `<div class="skin-card ${sanitize(tierClass)}">
-                    <img src="${safeIcon}" alt="${sanitize(skinObj.name)}" onerror="this.src='fallback-image-url.png'">
+                    <div class="skin-img-container" id="${skin_id}">
+                      ${safeIcon ? `<img src="${safeIcon}" alt="${sanitize(skinObj.name)}" loading="lazy">` : '<div class="skin-icon-placeholder">🔫</div>'}
+                    </div>
                     <div class="skin-name">${sanitize(skinObj.name)}</div>
                   </div>`;
       } catch(e) {
@@ -446,9 +618,9 @@ function generateAgentsGrid(agents) {
           const agent = typeof tagStr === 'string' ? JSON.parse(tagStr) : tagStr;
           // C2: Sanitize fields + H9: Validate icon URL against allowlist
           const safeIcon = isSafeIconUrl(agent.icon) ? sanitize(agent.icon) : '';
-          return `<div class="skin-card tier-battlepass"><img src="${safeIcon}" alt="${sanitize(agent.name)}" style="height: 50px; margin-bottom: 10px;"><div class="skin-name">${sanitize(agent.name)}</div></div>`;
+          return `<div class="skin-card tier-battlepass">${safeIcon ? `<img src="${safeIcon}" alt="${sanitize(agent.name)}" style="height: 50px; margin-bottom: 10px;">` : '<div class="skin-icon-placeholder" style="font-size: 40px; margin-bottom: 10px;">🕵️</div>'}<div class="skin-name">${sanitize(agent.name)}</div></div>`;
        } catch(e) {
-           return `<div class="skin-card tier-battlepass"><div class="skin-icon-placeholder">🕵️</div><div class="skin-name">${sanitize(tagStr)}</div></div>`;
+           return `<div class="skin-card tier-battlepass"><div class="skin-icon-placeholder" style="font-size: 40px; margin-bottom: 10px;">🕵️</div><div class="skin-name">${sanitize(typeof tagStr === 'string' ? tagStr.substring(0, 50) : 'Unknown')}</div></div>`;
        }
   }).join('');
 }
@@ -480,14 +652,16 @@ function renderListingCard(l) {
   const agentsCount = l.agentsCount || (l.agents ? l.agents.length : 0); 
   const saved = isWishlisted(idToUse);
   const inCompare = compareList.includes(idToUse);
-  const imgHtml = l.images && l.images[0] ? `<img src="${l.images[0]}" alt="${sanitize(l.title)}" loading="lazy">` : `<div class="card-img-placeholder">🎮</div>`;
+  const imgHtml = (l?.images?.[0] && isSafeImageUrl(l.images[0])) ? `<img src="${l.images[0]}" alt="${sanitize(l?.title)}" loading="lazy">` : `<div class="card-img-placeholder">🎮</div>`;
   const badges = [];
   if (l.contactReveals > 10) badges.push('<span class="badge badge-hot">Hot</span>');
-  if (l.images && l.images.length >= 3) badges.push('<span class="badge badge-verified">Verified</span>');
-  const cleanTags = getCleanTags(l).map(t => `<span class="pill" onclick="event.stopPropagation(); window.location='browse.html?tag=${t.replace('#','')}'">${t}</span>`).join('');
+  if (l?.images && l.images.length >= 3) badges.push('<span class="badge badge-verified">Verified</span>');
+  const cleanTags = (getCleanTags(l) || []).map(t => `<span class="pill" onclick="event.stopPropagation(); window.location='browse.html?tag=${t.replace('#','')}'">${ t}</span>`).join('');
 
   return `
-    <div class="listing-card" onclick="window.location='listing.html?id=${idToUse}'">
+    <div class="listing-card" onclick="window.location='listing.html?id=${idToUse}'"
+      role="link" tabindex="0" aria-label="${title}"
+      onkeypress="if(event.key==='Enter'){window.location='listing.html?id=${idToUse}';}">
       <div class="card-img-wrap">
         ${imgHtml}
         <div class="card-badges">${badges.join('')}</div>
@@ -543,7 +717,7 @@ async function renderListingDetail(id) {
     return; 
   }
 
-  if (l._id) fetch(`${API_BASE_URL}/listings/${l._id}/view`, { method: 'POST' }).catch(console.error);
+  if (l._id) fetch(`${API_BASE_URL}/listings/${l._id}/view`, { method: 'POST' }).catch(logErr);
 
   document.title = (l.title || 'Account') + ' — Asta Mart';
   
@@ -558,8 +732,8 @@ async function renderListingDetail(id) {
   const cleanTags = getCleanTags(l).map(t => `<span class="pill" onclick="window.location='browse.html?tag=${t.replace('#','')}'">${t}</span>`).join('');
   const badges = [];
   if (l.banHistory) badges.push('<span class="badge badge-ban" style="padding:5px 12px;font-size:13px">Prev. Restricted</span>');
-  const agentsLength = l.agentsCount || (l.agents ? l.agents.length : 0);
-  const totalSkinCount = (l.skinTags || []).length;
+  const agentsCount = l?.agentsCount ?? l?.agents?.length ?? 0;
+  const totalSkinCount = l?.skinTags?.length ?? 0;
   const saved = isWishlisted(idToUse);
 
   const html = `
@@ -600,9 +774,9 @@ async function renderListingDetail(id) {
 
       <div class="inventory-section">
         <div class="inventory-tabs">
-          <button class="inv-tab active" onclick="switchInvTab('skins')">Premium Skins (${totalSkinCount})</button>
-          <button class="inv-tab" onclick="switchInvTab('battlepass')">Battlepass (${(l.battlepassTags || []).length})</button>
-          <button class="inv-tab" onclick="switchInvTab('agents')">Agents (${agentsLength})</button>
+          <button class="inv-tab active" onclick="switchInvTab('skins', this)">Premium Skins (${totalSkinCount})</button>
+          <button class="inv-tab" onclick="switchInvTab('battlepass', this)">Battlepass (${l?.battlepassTags?.length ?? 0})</button>
+          <button class="inv-tab" onclick="switchInvTab('agents', this)">Agents (${agentsLength})</button>
         </div>
         
         <div id="tab-skins" class="inv-content active">
@@ -670,7 +844,9 @@ async function renderListingDetail(id) {
 
   document.getElementById('listingDetail').innerHTML = html;
 
-  const similar = getAllListings().filter(x => x._id !== l._id && x.region === l.region).slice(0, 4);
+  const similar = (getAllListings() || [])
+    .filter(x => x && x._id && l._id && x._id !== l._id && x?.region === l?.region)
+    .slice(0, 4) ?? [];
   renderListingsGrid('similarGrid', similar);
 }
 
@@ -702,7 +878,7 @@ async function revealContact(id) {
     document.querySelector('.reveal-btn-section').style.display = 'none';
     document.getElementById('contactRevealed').style.display = 'block';
   } catch (err) {
-    alert('Error revealing contact: ' + err.message);
+    showToast('Error revealing contact: ' + err.message, 'error');
   }
 }
 
@@ -724,14 +900,14 @@ function openWhatsAppWithPhone(id, phone, sellerName) {
 function isWishlisted(id) {
   const user = JSON.parse(localStorage.getItem('am_user') || 'null');
   if (!user) return false;
-  const list = JSON.parse(localStorage.getItem('am_wishlist_' + user.email) || '[]');
+  const list = JSON.parse(localStorage.getItem('am_wishlist_' + user?.email) || '[]');
   return list.includes(id.toString());
 }
 
 function toggleWishlist(id, btn) {
   const user = JSON.parse(localStorage.getItem('am_user') || 'null');
   if (!user) { openAuth('login'); return; }
-  const key = 'am_wishlist_' + user.email;
+  const key = 'am_wishlist_' + user?.email;
   const list = JSON.parse(localStorage.getItem(key) || '[]');
   const strId = id.toString();
   const idx = list.indexOf(strId);
@@ -774,7 +950,7 @@ function toggleCompare(id, title, btn) {
     compareList.splice(idx, 1);
     btn?.classList.remove('selected');
   } else {
-    if (compareList.length >= 3) { alert('You can compare up to 3 accounts at once.'); return; }
+    if (compareList.length >= 3) { showToast('You can compare up to 3 accounts at once.', 'info'); return; }
     compareList.push(strId);
     btn?.classList.add('selected');
   }
@@ -804,7 +980,7 @@ function clearCompare() {
 }
 
 function goCompare() {
-  if (compareList.length < 2) { alert('Select at least 2 accounts to compare.'); return; }
+  if (compareList.length < 2) { showToast('Select at least 2 accounts to compare.', 'info'); return; }
   window.location = 'compare.html';
 }
 
@@ -858,9 +1034,9 @@ async function deleteListing(id, btnElement) {
       setTimeout(() => card.remove(), 300);
     }
     
-    alert("Listing deleted successfully.");
+    showToast("Listing deleted successfully.", 'success');
   } catch (err) {
-    console.error("Delete error:", err);
-    alert(err.message);
+    logErr("Delete error:", err);
+    showToast(err.message, 'error');
   }
 }

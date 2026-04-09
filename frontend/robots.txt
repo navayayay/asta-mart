@@ -1,8 +1,10 @@
-# Asta Mart - Search Engine Crawling Rules
-# Block admin panel from search engines
 User-agent: *
-Disallow: /admin.html
 Allow: /
+Disallow: /admin.html
+Disallow: /profile.html
+Disallow: /dashboard.html
+Disallow: /saved.html
+Disallow: /vault-dashboard.html
+Disallow: /get-edit.html
 
-# Allow sitemap
 Sitemap: https://asta-mart.in/sitemap.xml
