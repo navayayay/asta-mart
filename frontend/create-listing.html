@@ -573,9 +573,8 @@ async function submitListing() {
   listing.aiSummary = `${listing.rank} account with ${listing.skinCount} premium skins. ${listing.region} server. ${listing.emailAccess ? 'Original email included' : 'Transfer to new mail (Full Access)'}. ₹${listing.price.toLocaleString('en-IN')}${listing.banHistory ? ' — previously restricted.' : '.'}`;
 
   try {
-    const res = await fetch(`${API_BASE_URL}/listings`, {
+    const res = await authFetch(`${API_BASE_URL}/listings`, {
       method: 'POST',
-      headers: getAuthHeaders(),
       body: JSON.stringify(listing)
     });
     
