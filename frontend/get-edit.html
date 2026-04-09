@@ -271,9 +271,8 @@ async function processRiotURL() {
   const term = document.getElementById('apiTerminal');
 
   try {
-    const res = await fetch(`${API_BASE_URL}/riot/sync-url`, {
+    const res = await authFetch(`${API_BASE_URL}/riot/sync-url`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ redirectUrl: pastedUrl })
     });
 
@@ -307,10 +306,8 @@ async function submitOrder() {
   const profile = JSON.parse(localStorage.getItem('am_seller_profile') || '{}');
 
   try {
-    await fetch(`${API_BASE_URL}/orders/inventory-edit`, {
+    await authFetch(`${API_BASE_URL}/orders/inventory-edit`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
       body: JSON.stringify({
         sellerName: user.name,
         sellerPhone: profile.whatsapp,

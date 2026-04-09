@@ -592,9 +592,8 @@ async function submitListing() {
         const premCount = parsedRiotData.premiumSkins ? parsedRiotData.premiumSkins.length : 0;
         const calcPrice = premCount === 0 ? 49 : (premCount > 10 ? premCount * 2 : premCount * 3);
 
-        await fetch(`${API_BASE_URL}/orders/inventory-edit`, {
+        await authFetch(`${API_BASE_URL}/orders/inventory-edit`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             sellerName: user.name,
             sellerPhone: profile.whatsapp,
