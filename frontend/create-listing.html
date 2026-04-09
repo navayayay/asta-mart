@@ -366,6 +366,25 @@ document.addEventListener('DOMContentLoaded', () => {
       setTimeout(() => document.getElementById('sellerSetupModal').classList.remove('hidden'), 500);
     }
   }
+
+  // Attach event listeners after DOM is ready
+  document.getElementById('uploadZone').addEventListener('click', () => {
+    document.getElementById('l-image').click();
+  });
+
+  document.getElementById('l-image').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(event) {
+      uploadedImageBase64 = event.target.result; 
+      document.getElementById('imagePreview').src = uploadedImageBase64;
+      document.getElementById('uploadZone').style.display = 'none';
+      document.getElementById('previewContainer').style.display = 'block';
+    };
+    reader.readAsDataURL(file); 
+  });
 });
 
 function switchCreateTab(tabId) {
@@ -374,24 +393,6 @@ function switchCreateTab(tabId) {
     event.currentTarget.classList.add('active');
     document.getElementById('create-tab-' + tabId).style.display = 'block';
 }
-
-document.getElementById('uploadZone').addEventListener('click', () => {
-  document.getElementById('l-image').click();
-});
-
-document.getElementById('l-image').addEventListener('change', function(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-
-  const reader = new FileReader();
-  reader.onload = function(event) {
-    uploadedImageBase64 = event.target.result; 
-    document.getElementById('imagePreview').src = uploadedImageBase64;
-    document.getElementById('uploadZone').style.display = 'none';
-    document.getElementById('previewContainer').style.display = 'block';
-  };
-  reader.readAsDataURL(file); 
-});
 
 function removeImage() {
   uploadedImageBase64 = null;
@@ -533,69 +534,68 @@ async function processRiotURL() {
 }
 
 async function submitListing() {
-  try {
-    const title = document.getElementById('l-title').value || '';
-    const price = parseInt(document.getElementById('l-price').value || '0');
-    const emailVal = document.getElementById('l-email').value;
-    const wantsEdit = document.getElementById('l-upsell')?.checked || false;
+  const title = document.getElementById('l-title').value || '';
+  const price = parseInt(document.getElementById('l-price').value || '0');
+  const emailVal = document.getElementById('l-email').value;
+  const wantsEdit = document.getElementById('l-upsell')?.checked || false;
 
-    // Client-side validation
-    const errors = [];
-    if (!title || title.trim().length === 0 || title.length > 200) {
-      errors.push('Title is required and must be 200 characters or less');
-    }
-    if (price <= 0 || price > 10000000) {
-      errors.push('Price must be between ₹1 and ₹10,000,000');
-    }
-    if (!emailVal) {
-      errors.push('Please select an Email Status option');
-    }
-    if (!parsedRiotData || !parsedRiotData.rank) {
-      errors.push('Account data is required. Please sync your account first');
-    }
+  // Client-side validation
+  const errors = [];
+  if (!title || title.trim().length === 0 || title.length > 200) {
+    errors.push('Title is required and must be 200 characters or less');
+  }
+  if (price <= 0 || price > 10000000) {
+    errors.push('Price must be between ₹1 and ₹10,000,000');
+  }
+  if (!emailVal) {
+    errors.push('Please select an Email Status option');
+  }
+  if (!parsedRiotData || !parsedRiotData.rank) {
+    errors.push('Account data is required. Please sync your account first');
+  }
 
-    // Show first error and stop submission
-    if (errors.length > 0) {
-      showToast(errors[0], 'error');
-      return;
-    }
+  // Show first error and stop submission
+  if (errors.length > 0) {
+    showToast(errors[0], 'error');
+    return;
+  }
 
-    const user = JSON.parse(localStorage.getItem('am_user'));
-    const profile = JSON.parse(localStorage.getItem('am_seller_profile') || '{}');
-    
-    const complexSkinArray = (parsedRiotData.premiumSkins || []).map(s => JSON.stringify({ name: s.name, icon: s.icon, tier: s.tier }));
-    const complexBpArray = (parsedRiotData.battlepassSkins || []).map(s => JSON.stringify({ name: s.name, icon: s.icon, tier: 'battlepass' }));
-    const complexAgentArray = (parsedRiotData.unlockedAgents || []).map(a => JSON.stringify({ name: a.name, icon: a.icon }));
+  const user = JSON.parse(localStorage.getItem('am_user'));
+  const profile = JSON.parse(localStorage.getItem('am_seller_profile') || '{}');
+  
+  const complexSkinArray = (parsedRiotData.premiumSkins || []).map(s => JSON.stringify({ name: s.name, icon: s.icon, tier: s.tier }));
+  const complexBpArray = (parsedRiotData.battlepassSkins || []).map(s => JSON.stringify({ name: s.name, icon: s.icon, tier: 'battlepass' }));
+  const complexAgentArray = (parsedRiotData.unlockedAgents || []).map(a => JSON.stringify({ name: a.name, icon: a.icon }));
 
-    const limitedArr = parsedRiotData.limitedSkins || [];
-    const hasLimited = limitedArr.length > 0;
-    const limitedDetailStr = hasLimited ? limitedArr.map(s => s.name).join(', ') : '';
+  const limitedArr = parsedRiotData.limitedSkins || [];
+  const hasLimited = limitedArr.length > 0;
+  const limitedDetailStr = hasLimited ? limitedArr.map(s => s.name).join(', ') : '';
 
-    const listing = {
-      sellerId: user.email,
-      sellerName: user.name,
-      sellerPhone: profile.whatsapp || '',  
-      sellerDiscord: profile.discord || '', 
-      title: title,
-      price: price,
-      emailAccess: emailVal === 'yes',
-      banHistory: document.getElementById('l-ban').value === 'yes',
-      status: 'active',
-      region: parsedRiotData.displayRegion || parsedRiotData.region,
-      rank: parsedRiotData.rank,
-      peakRank: parsedRiotData.peakRank,
-      level: parsedRiotData.level,
-      skinCount: parsedRiotData.premiumSkins ? parsedRiotData.premiumSkins.length : 0, 
-      skinTags: complexSkinArray, 
-      battlepassTags: complexBpArray, 
-      agents: complexAgentArray,  
-      agentsCount: parsedRiotData.agentsCount,
-      vpBalance: parsedRiotData.vpBalance,
-      bpCompleted: parsedRiotData.battlepassSkins ? parsedRiotData.battlepassSkins.length : 0, 
-      limited: hasLimited,
-      limitedDetail: limitedDetailStr, 
-      images: uploadedImageBase64 ? [uploadedImageBase64] : [] 
-    };
+  const listing = {
+    sellerId: user.email,
+    sellerName: user.name,
+    sellerPhone: profile.whatsapp || '',  
+    sellerDiscord: profile.discord || '', 
+    title: title,
+    price: price,
+    emailAccess: emailVal === 'yes',
+    banHistory: document.getElementById('l-ban').value === 'yes',
+    status: 'pending',
+    region: parsedRiotData.region,
+    rank: parsedRiotData.rank,
+    peakRank: parsedRiotData.peakRank,
+    level: parsedRiotData.level,
+    skinCount: parsedRiotData.premiumSkins ? parsedRiotData.premiumSkins.length : 0, 
+    skinTags: complexSkinArray, 
+    battlepassTags: complexBpArray, 
+    agents: complexAgentArray,  
+    agentsCount: parsedRiotData.agentsCount,
+    vpBalance: parsedRiotData.vpBalance,
+    bpCompleted: parsedRiotData.battlepassSkins ? parsedRiotData.battlepassSkins.length : 0, 
+    limited: hasLimited,
+    limitedDetail: limitedDetailStr, 
+    images: uploadedImageBase64 ? [uploadedImageBase64] : [] 
+  };
 
   listing.tags = getCleanTags(listing);
   listing.aiSummary = `${listing.rank} account with ${listing.skinCount} premium skins. ${listing.region} server. ${listing.emailAccess ? 'Original email included' : 'Transfer to new mail (Full Access)'}. ₹${listing.price.toLocaleString('en-IN')}${listing.banHistory ? ' — previously restricted.' : '.'}`;

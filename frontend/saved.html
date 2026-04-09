@@ -122,12 +122,6 @@
         await fetchAllListingsFromDB();
       }
       
-      // Check if fetch failed (GLOBAL_LISTINGS empty) by checking if we have data or sample data
-      if (GLOBAL_LISTINGS.length === 0) {
-        document.getElementById('savedError').classList.remove('hidden');
-        return;
-      }
-      
       const key = 'am_wishlist_' + user.email;
       const savedIds = JSON.parse(localStorage.getItem(key) || '[]');
       const savedListings = GLOBAL_LISTINGS.filter(l => savedIds.includes((l._id || l.id).toString()));

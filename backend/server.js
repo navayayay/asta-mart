@@ -472,7 +472,7 @@ app.post('/api/auth/verify-otp', verifyLimiter, csrfProtection, async (req, res)
         // Send token as httpOnly cookie (XSS-safe)
         res.cookie('am_token', token, {
           httpOnly: true,
-          secure: true,  // ALWAYS true in production
+          secure: process.env.NODE_ENV === 'production',  // Only secure in production
           sameSite: 'Lax',
           maxAge: 7 * 24 * 60 * 60 * 1000
         });
@@ -532,7 +532,7 @@ app.post('/api/admin/login', adminLoginLimiter, (req, res) => {
     // Set secure httpOnly cookie (not accessible from JavaScript)
     res.cookie('am_admin', token, {
       httpOnly: true,
-      secure: true,  // ALWAYS true in production
+      secure: process.env.NODE_ENV === 'production',  // Only secure in production
       sameSite: 'Lax',
       maxAge: 4 * 60 * 60 * 1000 // 4 hours
     });

@@ -220,6 +220,12 @@ async function logoutAdmin() {
   }
 }
 
+function getAdminHeaders() {
+  // Admin requests use httpOnly cookies for authentication
+  // No custom headers needed - credentials: 'include' handles it
+  return {};
+}
+
 function switchAdminTab(button, tab) {
     document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('main > div').forEach(d => d.classList.add('hidden'));

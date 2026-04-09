@@ -173,15 +173,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     try {
       await fetchAllListingsFromDB();
-      
-      // Check if fetch failed
-      if (GLOBAL_LISTINGS.length === 0) {
-        document.getElementById('dashError').classList.remove('hidden');
-        // Hide stats and tabs
-        document.querySelectorAll('.dash-stats, .dash-tabs, .dash-tab-content').forEach(el => el.style.display = 'none');
-        return;
-      }
-      
       loadDashboard(user);
     } catch (e) {
       console.error('Error loading dashboard:', e);
