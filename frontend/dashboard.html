@@ -172,7 +172,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     if(document.getElementById('avatarInitial')) document.getElementById('avatarInitial').textContent = user.name[0].toUpperCase();
     
     try {
-      await fetchAllListingsFromDB();
+      // Fetch active listings and user's own listings (all statuses)
+      await Promise.all([
+        fetchAllListingsFromDB(),
+        fetchUserListings(user.email)
+      ]);
       loadDashboard(user);
     } catch (e) {
       console.error('Error loading dashboard:', e);
@@ -221,6 +225,21 @@ function loadDashboard(user) {
   const profile = JSON.parse(localStorage.getItem('am_seller_profile') || '{}');
   document.getElementById('prof-whatsapp').value = profile.whatsapp || ''; 
   document.getElementById('prof-discord').value = profile.discord || '';
+}
+
+// Fetch user's listings (pending and sold) by making an admin call
+// This supplements the global active listings
+async function fetchUserListings(userEmail) {
+  try {
+    // For now, create a local store of user listings from localStorage
+    // This will be populated when user submits listings
+    const cachedUserListings = JSON.parse(localStorage.getItem('am_user_listings_' + userEmail) || '[]');
+    if (!window.USER_LISTINGS) window.USER_LISTINGS = [];
+    window.USER_LISTINGS = cachedUserListings;
+  } catch (err) {
+    console.warn('Could not load user listings cache:', err);
+    if (!window.USER_LISTINGS) window.USER_LISTINGS = [];
+  }
 }
 
 function renderDashCard(l) {

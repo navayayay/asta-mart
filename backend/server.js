@@ -631,6 +631,21 @@ app.get('/api/users/profile', requireAuth, async (req, res) => {
   }
 });
 
+// --- FETCH USER'S OWN LISTINGS (All Statuses) ---
+app.get('/api/user/listings', requireAuth, readLimiter, async (req, res) => {
+  try {
+    const userListings = await Listing.find({ sellerId: req.user.email })
+      .lean()
+      .sort({ createdAt: -1 })
+      .select('-sellerPhone -sellerDiscord');
+    
+    res.json(userListings || []);
+  } catch (error) {
+    console.error('❌ User Listings Fetch Error:', error);
+    res.status(500).json({ error: 'Failed to fetch your listings' });
+  }
+});
+
 // --- TOKEN VALIDATION HELPER ---
 function validateAccessToken(token) {
     if (!token || typeof token !== 'string') return false;

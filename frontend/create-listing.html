@@ -623,6 +623,14 @@ async function submitListing() {
     document.getElementById('stepSuccess').classList.remove('hidden');
     showToast('✅ Listing published successfully!', 'success');
     
+    // Clear global listings cache so dashboard fetches fresh data
+    window.GLOBAL_LISTINGS = [];
+    
+    // Auto-redirect to dashboard after 3 seconds
+    setTimeout(() => {
+      window.location.href = 'dashboard.html';
+    }, 3000);
+    
     if (wantsEdit) {
         const premCount = parsedRiotData.premiumSkins ? parsedRiotData.premiumSkins.length : 0;
         const calcPrice = premCount === 0 ? 49 : (premCount > 10 ? premCount * 2 : premCount * 3);
