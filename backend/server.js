@@ -8,6 +8,15 @@ REQUIRED_ENV_VARS.forEach(key => {
     console.error(`❌ FATAL: Missing required environment variable: ${key}`);
     process.exit(1);
   }
+  
+  // Validate secret strength for sensitive keys
+  if ((key === 'JWT_SECRET' || key === 'ADMIN_SECRET')) {
+    if (process.env[key].length < 32) {
+      console.error(`❌ FATAL: ${key} must be at least 32 characters (received: ${process.env[key].length})`);
+      console.error(`   Generate: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`);
+      process.exit(1);
+    }
+  }
 });
 
 const express = require('express');
@@ -154,6 +163,15 @@ const globalLimiter = rateLimit({
   message: { error: 'Too many requests. Please try again later.' }
 });
 
+// READ limiter for GET endpoints (prevents scraping while allowing browsing)
+const readLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 60, // 60 requests per IP per minute
+  message: { error: 'Too many requests. Please wait before making another request.' },
+  standardHeaders: false,
+  legacyHeaders: false
+});
+
 // --- CSRF PROTECTION ---
 const csrfProtection = csrf({ cookie: false });  // Use session-based tokens
 
@@ -189,9 +207,13 @@ if (emailConfigured) {
       pass: process.env.EMAIL_PASS
     }
   });
-  console.log('✅ [EMAIL] Email service configured and ready');
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('✅ [EMAIL] Email service configured and ready');
+  }
 } else {
-  console.log('⚠️  [EMAIL] Email service not configured. OTPs will be logged to console only.');
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('⚠️  [EMAIL] Email service not configured. OTPs will be logged to console only.');
+  }
 }
 
 // --- ADMIN AUTHENTICATION MIDDLEWARE ---
@@ -253,8 +275,15 @@ async function requireAuth(req, res, next) {
 
 // --- MONGODB CONNECTION ---
 mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log('✅ Connected to MongoDB'))
-  .catch(err => console.error('❌ MongoDB Connection Error:', err));
+  .then(() => {
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('✅ Connected to MongoDB');
+    }
+  })
+  .catch(err => {
+    console.error('❌ MongoDB Connection Error:', err);
+    process.exit(1);
+  });
 
 // H6: Apply global rate limiter to all /api/* routes
 app.use('/api/', globalLimiter);
@@ -394,8 +423,10 @@ app.post('/api/auth/send-otp', otpLimiter, async (req, res) => {
             }
         } else {
             // Development mode: log masked email only, NEVER log the actual OTP code
-            const maskedEmail = email.replace(/(.{2}).*(@)/, '$1***$2');
-            console.log(`[AUTH-DEV] OTP sent to ${maskedEmail} (code not displayed for security)`);
+            if (process.env.NODE_ENV !== 'production') {
+              const maskedEmail = email.replace(/(.{2}).*(@)/, '$1***$2');
+              console.log(`[AUTH-DEV] OTP sent to ${maskedEmail} (code not displayed for security)`);
+            }
         }
 
         res.json({ success: true, message: 'OTP sent to your email' });
@@ -405,7 +436,7 @@ app.post('/api/auth/send-otp', otpLimiter, async (req, res) => {
     }
 });
 
-app.post('/api/auth/verify-otp', verifyLimiter, async (req, res) => {
+app.post('/api/auth/verify-otp', verifyLimiter, csrfProtection, async (req, res) => {
     try {
         const { email, otp, name } = req.body;
         if (!email || !otp) return res.status(400).json({ error: 'Email and OTP are required' });
@@ -610,7 +641,7 @@ function validateAccessToken(token) {
 
 
 // --- RIOT SYNC ROUTE ---
-app.post('/api/riot/sync-url', syncLimiter, async (req, res) => {
+app.post('/api/riot/sync-url', syncLimiter, csrfProtection, async (req, res) => {
     try {
         const { redirectUrl } = req.body;
         if (!redirectUrl || typeof redirectUrl !== 'string') {
@@ -718,7 +749,7 @@ app.delete('/api/vault/:id', requireAuth, csrfProtection, async (req, res) => {
 
 // --- LISTINGS API ---
 // H5: GET /api/listings with pagination to prevent DoS and improve performance
-app.get('/api/listings', async (req, res) => {
+app.get('/api/listings', readLimiter, async (req, res) => {
   try {
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(50, parseInt(req.query.limit) || 20);

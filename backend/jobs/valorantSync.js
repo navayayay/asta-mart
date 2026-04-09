@@ -15,7 +15,9 @@ function determineTierClass(tierUuid) {
 }
 
 async function syncValorantData() {
-  console.log('🔄 Starting daily Valorant API sync...');
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('🔄 Starting daily Valorant API sync...');
+  }
   
   try {
     const response = await axios.get('https://valorant-api.com/v1/weapons/skins');
@@ -41,7 +43,9 @@ async function syncValorantData() {
     
     if (bulkOps.length > 0) {
       await Skin.bulkWrite(bulkOps);
-      console.log(`✅ Successfully synced ${formattedSkins.length} skins.`);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`✅ Successfully synced ${formattedSkins.length} skins.`);
+      }
     }
   } catch (error) {
     console.error('❌ Failed to sync Valorant data:', error.message);

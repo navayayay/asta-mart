@@ -13,6 +13,27 @@ const logErr = (...a) => console.error(...a); // Always log real errors
 log('🔌 API_BASE_URL:', API_BASE_URL, '| Hostname:', window.location.hostname);
 }
 
+// ===================== CSRF TOKEN MANAGEMENT =====================
+let CSRF_TOKEN = null;
+
+async function fetchCSRFToken() {
+  try {
+    const res = await fetch(`${API_BASE_URL}/csrf-token`, {
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    if (!res.ok) throw new Error('Failed to fetch CSRF token');
+    
+    const data = await res.json();
+    CSRF_TOKEN = data.csrfToken;
+    sessionStorage.setItem('csrf_token', CSRF_TOKEN);
+    
+    if (isDev) log('✅ CSRF token obtained');
+  } catch (err) {
+    logErr('CSRF token fetch failed:', err);
+  }
+}
+
 // ===================== FORM VALIDATION HELPERS =====================
 function validateEmail(email) {
   const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

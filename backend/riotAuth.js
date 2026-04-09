@@ -60,7 +60,9 @@ class RiotAPI {
                 throw new Error('Invalid token format: token does not match JWT structure.');
             }
 
-            console.log(`\n--- STARTING DYNAMIC RIOT SYNC ---`);
+            if (process.env.NODE_ENV !== 'production') {
+              console.log(`\n--- STARTING DYNAMIC RIOT SYNC ---`);
+            }
             
             // 1. Entitlements
             const entResponse = await this.client.post('https://entitlements.auth.riotgames.com/api/token/v1', {}, { headers: { 'Authorization': `Bearer ${accessToken}` } });
@@ -132,7 +134,11 @@ class RiotAPI {
                     const cardData = await cardRes.json();
                     if(cardData.data && cardData.data.largeArt) playerCardImage = cardData.data.largeArt; 
                 }
-            } catch(err) { console.log(">> Failed to fetch player card image."); }
+            } catch(err) { 
+              if (process.env.NODE_ENV !== 'production') {
+                console.log(">> Failed to fetch player card image.");
+              }
+            }
 
             // 7. Rank
             let currentRank = 'Unranked', peakRank = 'Unranked';
@@ -172,7 +178,11 @@ class RiotAPI {
                 if (agentsRes.ok) agentsCatalog = (await agentsRes.json()).data || [];
                 if (buddiesRes.ok) buddiesCatalog = (await buddiesRes.json()).data || [];
                 
-            } catch (err) { console.log(">> Failed to fetch Agent/Buddy catalogs."); }
+            } catch (err) { 
+              if (process.env.NODE_ENV !== 'production') {
+                console.log(">> Failed to fetch Agent/Buddy catalogs.");
+              }
+            }
 
             // 9. 🟢 THE WATERTIGHT SKIN SCANNER (BP KNIVES ONLY)
             let premiumSkins = [];
@@ -224,7 +234,11 @@ class RiotAPI {
                         }
                     }
                 });
-            } catch(e) { console.log(">> Failed to fetch skins"); }
+            } catch(e) { 
+              if (process.env.NODE_ENV !== 'production') {
+                console.log(">> Failed to fetch skins");
+              }
+            }
 
             // 10. Agents
             let unlockedAgents = [];
@@ -250,7 +264,9 @@ class RiotAPI {
                 });
             } catch (e) {}
 
-            console.log(`--- SYNC COMPLETE ---\n`);
+            if (process.env.NODE_ENV !== 'production') {
+              console.log(`--- SYNC COMPLETE ---\n`);
+            }
 
             const displayCountry = country.toUpperCase();
             const displayRegion = activeRegion.toUpperCase();
