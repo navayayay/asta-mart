@@ -364,59 +364,66 @@ function initVideoScrollEffects() {
   gsap.ticker.lagSmoothing(0);
   
   // Preload frames immediately (before scroll animation starts)
-  const preloadFrames = (total, path) => {
+  const preloadFrames = async (total, path) => {
+    const promises = [];
     for (let i = 1; i <= total; i++) {
-      const link = document.createElement('link');
-      link.rel = 'prefetch';
-      link.as = 'image';
-      link.href = `${path}${String(i).padStart(4, '0')}.jpg`;
-      document.head.appendChild(link);
+      const promise = new Promise((resolve) => {
+        const img = new Image();
+        img.onload = resolve;
+        img.onerror = resolve;  // Continue even if image fails to load
+        img.src = `${path}${String(i).padStart(4, '0')}.jpg`;
+      });
+      promises.push(promise);
     }
+    await Promise.all(promises);
+    log(`✅ All ${total} frames preloaded into memory`);
   };
   
-  // Start timeline immediately
-  try {
-    log('📹 Starting GSAP frame timeline...');
-    
-    let tl = gsap.timeline({ 
-      scrollTrigger: { 
-        trigger: ".premium-hero", 
-        start: "top top", 
-        end: "+=3500",
-        scrub: 1, 
-        pin: true,
-        markers: false,  // Set to true for debugging
-        onUpdate: (self) => { 
-          // Calculate which frame to show based on scroll progress
-          const frameNum = Math.ceil(self.progress * totalFrames);
-          const frameIndex = Math.max(1, Math.min(frameNum, totalFrames));
-          img.src = `${framePath}${String(frameIndex).padStart(4, '0')}.jpg`;
-        }
-      } 
-    });
-    
-    const animDuration = 1.0; // Animation duration for other elements
-    
-    // 1. Fade Text early
-    tl.to(".gs-reveal-text", { opacity: 0, y: -100, scale: 1.05, duration: animDuration * 0.2 }, 0);
-    
-    // 2. Pop the cards up
-    tl.fromTo(".glass-card", 
-      { opacity: 0, y: 150, filter: "blur(10px)" }, 
-      { opacity: 1, y: 0, filter: "blur(0px)", stagger: 0.05, duration: animDuration * 0.1, ease: "power2.out" }, 
-      animDuration * 0.01 
-    );
-    
-    log('✅ GSAP frame timeline created successfully', { totalFrames });
-    
-    // Refresh ScrollTrigger after timeline created
-    ScrollTrigger.refresh();
-    
-    // Preload all frames after timeline is set up
-    preloadFrames(totalFrames, framePath);
-  } catch (err) {
-    logErr('❌ Error initializing GSAP timeline:', err);
-  }
+  // Start timeline - ASYNC IIFE
+  (async () => {
+    try {
+      log('📹 Starting GSAP frame timeline...');
+      
+      // Preload frames BEFORE starting animation
+      await preloadFrames(totalFrames, framePath);
+      
+      let tl = gsap.timeline({ 
+        scrollTrigger: { 
+          trigger: ".premium-hero", 
+          start: "top top", 
+          end: "+=3500",
+          scrub: 1, 
+          pin: true,
+          markers: false,  // Set to true for debugging
+          onUpdate: (self) => { 
+            // Calculate which frame to show based on scroll progress
+            const frameNum = Math.ceil(self.progress * totalFrames);
+            const frameIndex = Math.max(1, Math.min(frameNum, totalFrames));
+            img.src = `${framePath}${String(frameIndex).padStart(4, '0')}.jpg`;
+          }
+        } 
+      });
+      
+      const animDuration = 1.0; // Animation duration for other elements
+      
+      // 1. Fade Text early
+      tl.to(".gs-reveal-text", { opacity: 0, y: -100, scale: 1.05, duration: animDuration * 0.2 }, 0);
+      
+      // 2. Pop the cards up
+      tl.fromTo(".glass-card", 
+        { opacity: 0, y: 150, filter: "blur(10px)" }, 
+        { opacity: 1, y: 0, filter: "blur(0px)", stagger: 0.05, duration: animDuration * 0.1, ease: "power2.out" }, 
+        animDuration * 0.01 
+      );
+      
+      log('✅ GSAP frame timeline created successfully', { totalFrames });
+      
+      // Refresh ScrollTrigger after timeline created
+      ScrollTrigger.refresh();
+    } catch (err) {
+      logErr('❌ Error initializing GSAP timeline:', err);
+    }
+  })();
 }
 
 // ===================== API-DRIVEN AUTHENTICATION =====================
