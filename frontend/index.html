@@ -244,5 +244,17 @@
 
 <script src="app.js"></script>
 <script src="effects.js"></script>
+<script>
+  // Register service worker for frame caching
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js')
+      .then(registration => {
+        console.log('[SW] Service Worker registered successfully:', registration);
+      })
+      .catch(err => {
+        console.warn('[SW] Service Worker registration failed:', err);
+      });
+  }
+</script>
 </body>
 </html>

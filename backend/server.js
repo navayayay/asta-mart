@@ -334,6 +334,14 @@ app.get('/api/csrf-token', csrfProtection, (req, res) => {
   res.json({ csrfToken: req.csrfToken() });
 });
 
+// --- FAVICON ROUTE ---
+app.get('/favicon.ico', (req, res) => {
+  // Serve favicon from frontend directory
+  const path = require('path');
+  res.type('image/x-icon');
+  res.sendFile(path.join(__dirname, '../frontend/favicon-32x32.png'));
+});
+
 // --- AUTH / OTP ROUTES ---
 app.post('/api/auth/send-otp', otpLimiter, async (req, res) => {
     try {
