@@ -1,9 +1,9 @@
 // ===================== APP STATE & API CONFIG =====================
-const API_BASE_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.startsWith('192.168.'))
-  ? 'http://localhost:5000/api'
+const API_BASE_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.startsWith('192.168.') || window.location.protocol === 'file:')
+  ? `http://${window.location.hostname}:5000/api`
   : 'https://api.asta-mart.in/api';
 // Only log API endpoint in development/local environments
-if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.startsWith('192.168.')) {
+if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.startsWith('192.168.') || window.location.protocol === 'file:') {
   console.log('🔌 API_BASE_URL:', API_BASE_URL, '| Hostname:', window.location.hostname);
 }
 let compareList = JSON.parse(sessionStorage.getItem('am_compare') || '[]');

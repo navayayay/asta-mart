@@ -261,7 +261,8 @@ async function markSold(id) {
   try {
     const res = await fetch(`${API_BASE_URL}/listings/${id}`, { 
       method: 'PUT',
-      headers: getAuthHeaders()
+      headers: getAuthHeaders(),
+      credentials: 'include'
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -278,7 +279,8 @@ async function deleteListing(id) {
   try {
     const res = await fetch(`${API_BASE_URL}/listings/${id}`, { 
       method: 'DELETE',
-      headers: getAuthHeaders()
+      headers: getAuthHeaders(),
+      credentials: 'include'
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));

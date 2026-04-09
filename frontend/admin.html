@@ -215,7 +215,8 @@ async function loadAllAdminData() {
     try {
         const headers = getAdminHeaders();
         const resListings = await fetch(`${API_BASE_URL}/admin/listings`, {
-            headers: headers
+            headers: headers,
+            credentials: 'include'
         });
         const data = await resListings.json();
         // Backend returns {listings: [...], total, page, pages}
@@ -253,7 +254,8 @@ async function loadAllAdminData() {
 
         // Render Orders
         const resOrders = await fetch(`${API_BASE_URL}/admin/orders`, {
-            headers: getAdminHeaders()
+            headers: getAdminHeaders(),
+            credentials: 'include'
         });
         const orders = await resOrders.json();
         const ordersBody = document.getElementById('ordersTableBody');
@@ -281,7 +283,8 @@ async function approveListing(id) {
     try {
         const response = await fetch(`${API_BASE_URL}/admin/listings/${id}/approve`, { 
             method: 'PUT',
-            headers: getAdminHeaders()
+            headers: getAdminHeaders(),
+            credentials: 'include'
         });
         if (response.status === 401) {
             alert('Session expired. Please reload and re-enter your admin secret.');
@@ -299,7 +302,8 @@ async function banListing(id) {
     try {
         const response = await fetch(`${API_BASE_URL}/admin/listings/${id}`, { 
             method: 'DELETE',
-            headers: getAdminHeaders()
+            headers: getAdminHeaders(),
+            credentials: 'include'
         });
         if (response.status === 401) {
             alert('Session expired. Please reload and re-enter your admin secret.');
@@ -317,7 +321,8 @@ async function markOrderCompleted(id) {
     try {
         const response = await fetch(`${API_BASE_URL}/admin/orders/${id}/complete`, { 
             method: 'PUT',
-            headers: getAdminHeaders()
+            headers: getAdminHeaders(),
+            credentials: 'include'
         });
         if (response.status === 401) {
             alert('Session expired. Please reload and re-enter your admin secret.');

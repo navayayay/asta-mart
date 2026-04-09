@@ -297,6 +297,7 @@ async function submitOrder() {
     await fetch(`${API_BASE_URL}/orders/inventory-edit`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({
         sellerName: user.name,
         sellerPhone: profile.whatsapp,

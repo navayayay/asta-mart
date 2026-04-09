@@ -199,7 +199,10 @@ async function loadVault() {
   }
 
   try {
-    const res = await fetch(`${API_BASE_URL}/vault/user/${user.email}`);
+    const res = await fetch(`${API_BASE_URL}/vault/user/${user.email}`, {
+      credentials: 'include'
+    });
+    if (!res.ok) throw new Error(await res.json().then(r => r.error));
     const vaultItems = await res.json();
     
     document.getElementById('slot-count').textContent = vaultItems.length;
@@ -251,8 +254,8 @@ async function loadVault() {
       `;
     }
   } catch (err) {
-    console.error(err);
-    alert('Failed to load Vault. Make sure backend is running.');
+    console.error('Vault load error:', err);
+    alert('Failed to load Vault: ' + err.message);
   }
 }
 
@@ -269,7 +272,8 @@ async function syncToVault() {
     const res = await fetch(`${API_BASE_URL}/vault/sync`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ redirectUrl: url, ownerEmail: user.email })
+      body: JSON.stringify({ redirectUrl: url, ownerEmail: user.email }),
+      credentials: 'include'
     });
     
     const data = await res.json();
