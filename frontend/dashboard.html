@@ -189,25 +189,29 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 function loadDashboard(user) {
   const allListings = window.GLOBAL_LISTINGS || [];
-  const myListings = allListings.filter(l => l.sellerId === user.email);
+  const userListings = window.USER_LISTINGS || [];
   
-  const active = myListings.filter(l => l.status === 'active');
-  const pending = myListings.filter(l => l.status === 'pending');
-  const sold = myListings.filter(l => l.status === 'sold');
+  // For active: use global listings filtered by seller
+  const myActive = allListings.filter(l => l.sellerId === user.email && l.status === 'active');
   
-  document.getElementById('ds-total').textContent = myListings.length;
-  document.getElementById('ds-active').textContent = active.length;
+  // For pending and sold: use user's full listings
+  const pending = userListings.filter(l => l.status === 'pending');
+  const sold = userListings.filter(l => l.status === 'sold');
+  const myListingsTotal = userListings.length;
   
-  // Aggregate views and reveals from all listings
-  const totalViews = myListings.reduce((sum, l) => sum + (l.views || 0), 0);
-  const totalReveals = myListings.reduce((sum, l) => sum + (l.contactReveals || 0), 0);
+  document.getElementById('ds-total').textContent = myListingsTotal;
+  document.getElementById('ds-active').textContent = myActive.length;
+  
+  // Aggregate views and reveals - use user listings which should have this data
+  const totalViews = userListings.reduce((sum, l) => sum + (l.views || 0), 0);
+  const totalReveals = userListings.reduce((sum, l) => sum + (l.contactReveals || 0), 0);
   document.getElementById('ds-views').textContent = totalViews;
   document.getElementById('ds-reveals').textContent = totalReveals;
 
   // Active Grid
   const grid = document.getElementById('myListingsGrid');
-  if (active.length === 0) document.getElementById('noMyListings').classList.remove('hidden');
-  else grid.innerHTML = active.map(l => renderDashCard(l)).join('');
+  if (myActive.length === 0) document.getElementById('noMyListings').classList.remove('hidden');
+  else grid.innerHTML = myActive.map(l => renderDashCard(l)).join('');
 
   // Pending Grid
   const pendingGrid = document.getElementById('pendingListingsGrid');
@@ -227,18 +231,17 @@ function loadDashboard(user) {
   document.getElementById('prof-discord').value = profile.discord || '';
 }
 
-// Fetch user's listings (pending and sold) by making an admin call
-// This supplements the global active listings
+// Fetch user's listings (all statuses - active, pending, sold)
 async function fetchUserListings(userEmail) {
   try {
-    // For now, create a local store of user listings from localStorage
-    // This will be populated when user submits listings
-    const cachedUserListings = JSON.parse(localStorage.getItem('am_user_listings_' + userEmail) || '[]');
-    if (!window.USER_LISTINGS) window.USER_LISTINGS = [];
-    window.USER_LISTINGS = cachedUserListings;
+    const res = await authFetch(`${API_BASE_URL}/user/listings`);
+    if (!res.ok) throw new Error('Failed to fetch user listings');
+    
+    const userListings = await res.json();
+    window.USER_LISTINGS = Array.isArray(userListings) ? userListings : [];
   } catch (err) {
-    console.warn('Could not load user listings cache:', err);
-    if (!window.USER_LISTINGS) window.USER_LISTINGS = [];
+    console.warn('Could not load user listings:', err);
+    window.USER_LISTINGS = [];
   }
 }
 
