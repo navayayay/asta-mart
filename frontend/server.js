@@ -16,8 +16,8 @@ app.use((req, res, next) => {
   next();
 });
 
-// Serve index.html for SPA routes
-app.get('*', (req, res) => {
+// Serve index.html for SPA routes (fallback for all other routes)
+app.use((req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 

@@ -12,6 +12,29 @@
 <meta property="og:image:width" content="720">
 <meta property="og:image:height" content="720">
 <meta name="twitter:card" content="summary_large_image">
+{% comment %} W1: Structured data for SEO {% endcomment %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "CollectionPage",
+  "name": "Browse Valorant Accounts",
+  "description": "Browse verified Valorant accounts for sale on Asta Mart marketplace. Filter by rank, skins, region.",
+  "url": "https://asta-mart.in/browse.html",
+  "isPartOf": {
+    "@type": "WebSite",
+    "name": "Asta Mart",
+    "url": "https://asta-mart.in"
+  },
+  "potentialAction": {
+    "@type": "SearchAction",
+    "target": {
+      "@type": "EntryPoint",
+      "urlTemplate": "https://asta-mart.in/browse.html?search={search_term}"
+    },
+    "query-input": "required name=search_term"
+  }
+}
+</script>
 <title>Browse Accounts — Asta Mart</title>
 <!-- L3: Canonical link tag for SEO -->
 <link rel="canonical" href="https://asta-mart.in/browse.html">
@@ -20,7 +43,11 @@
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="64x64" href="favicon-64x64.png">
 <link rel="apple-touch-icon" sizes="180x180" href="asta_mart_logo_transparent.png">
+<!-- P1: Performance optimization - preconnect for faster font loading -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- P2: Preload critical fonts for faster rendering -->
+<link rel="preload" as="font" type="font/woff2" href="https://fonts.gstatic.com/s/rajdhani/v11/2sSzaptLBHvD1ZJBy0dkUr0f.woff2" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 <style>

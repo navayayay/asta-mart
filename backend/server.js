@@ -173,7 +173,7 @@ const readLimiter = rateLimit({
 });
 
 // --- CSRF PROTECTION ---
-const csrfProtection = csrf({ cookie: false });  // Use session-based tokens
+const csrfProtection = csrf({ cookie: true });  // Use cookie-based tokens (stateless)
 
 // --- STANDARDIZED API RESPONSE HANDLER ---
 function sendSuccess(res, data = null, message = 'Success', statusCode = 200) {

@@ -2,15 +2,15 @@
 const API_BASE_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.startsWith('192.168.') || window.location.protocol === 'file:')
   ? `http://${window.location.hostname}:5000/api`
   : 'https://api.asta-mart.in/api';
-// Only log API endpoint in development/local environments
-if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.startsWith('192.168.') || window.location.protocol === 'file:') {
-// Development-only logging to avoid console spam in production
+
+// ===================== LOGGING UTILITIES =====================
 const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 const log = (...a) => isDev && console.log(...a);
 const warn = (...a) => isDev && console.warn(...a);
 const logErr = (...a) => console.error(...a); // Always log real errors
 
-log('🔌 API_BASE_URL:', API_BASE_URL, '| Hostname:', window.location.hostname);
+if (isDev) {
+  log('🔌 API_BASE_URL:', API_BASE_URL, '| Hostname:', window.location.hostname);
 }
 
 // ===================== CSRF TOKEN MANAGEMENT =====================
@@ -66,6 +66,54 @@ function validateListingForm(data) {
   }
   return errors;
 }
+
+// ===================== WEB VITALS MONITORING =====================
+// Track Core Web Vitals for performance monitoring
+if ('web-vital' in window || 'onload' in window) {
+  try {
+    // Check if Web Vitals library is available
+    if (typeof window.webVitals !== 'undefined') {
+      // Largest Contentful Paint (LCP)
+      window.webVitals.getLCP(metric => {
+        if (metric.value > 2.5) console.warn('⚠️ LCP:', metric.value.toFixed(1), 'ms');
+      });
+      // First Input Delay (FID) / Interaction to Next Paint (INP)
+      window.webVitals.getFID(metric => {
+        if (metric.value > 100) console.warn('⚠️ FID:', metric.value.toFixed(1), 'ms');
+      });
+      // Cumulative Layout Shift (CLS)
+      window.webVitals.getCLS(metric => {
+        if (metric.value > 0.1) console.warn('⚠️ CLS:', metric.value.toFixed(3));
+      });
+    }
+  } catch (err) {
+    // Web Vitals not available, continue without it
+  }
+}
+
+// ===================== WEB VITALS MONITORING =====================
+// L4: Track Core Web Vitals for performance monitoring
+(function() {
+  try {
+    // Manual measurement of key metrics (Web Vitals library optional)
+    let lcpValue = 0, fidValue = 0, clsValue = 0;
+    
+    // Monitor Largest Contentful Paint (LCP)
+    const observer = new PerformanceObserver((list) => {
+      for (const entry of list.getEntries()) {
+        if (entry.entryType === 'largest-contentful-paint') {
+          lcpValue = entry.renderTime || entry.loadTime;
+          if (lcpValue > 2500 && isDev) console.warn('⚠️ LCP (High):', lcpValue.toFixed(0), 'ms');
+        }
+      }
+    });
+    if (PerformanceObserver && 'largest-contentful-paint' in PerformanceObserver.supportedEntryTypes) {
+      observer.observe({entryTypes: ['largest-contentful-paint']});
+    }
+  } catch (e) {
+    // Web Vitals monitoring not available
+  }
+})();
 
 // ===================== TOAST NOTIFICATIONS =====================
 function showToast(msg, type = 'info', duration = 4000) {
@@ -170,26 +218,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     const heroSection = document.getElementById('heroSection');
     if (heroSection) {
       try {
-        // If page is already loaded, call immediately; otherwise wait for load event
-        if (document.readyState === 'complete' || document.readyState === 'interactive') {
-          log('🍼 Page already loaded, initializing video effect...');
-          setTimeout(() => {
-            if (typeof initVideoScrollEffects === 'function') {
-              initVideoScrollEffects();
-            } else {
-              logErr('❌ initVideoScrollEffects function not found');
-            }
-          }, 100);
+        // Wait for window load to ensure images and styles are ready
+        if (document.readyState === 'complete') {
+          log('🎬 Page ready, initializing GSAP scroll effect...');
+          if (typeof initVideoScrollEffects === 'function') {
+            initVideoScrollEffects();
+          }
         } else {
           window.addEventListener('load', () => {
-            log('🍼 Window load event fired, initializing video effect...');
-            setTimeout(() => {
-              if (typeof initVideoScrollEffects === 'function') {
-                initVideoScrollEffects();
-              } else {
-                logErr('❌ initVideoScrollEffects function not found');
-              }
-            }, 300);
+            log('🎬 Window loaded, initializing GSAP scroll effect...');
+            if (typeof initVideoScrollEffects === 'function') {
+              initVideoScrollEffects();
+            }
           }, { once: true });
         }
       } catch (err) {
@@ -277,85 +317,51 @@ function updateStatCount() {
 function initVideoScrollEffects() {
   const img = document.getElementById('scrubImage');
   if (!img) {
-    warn('❌ Image element not found');
+    warn('❌ Image element #scrubImage not found');
     return;
   }
-  if (typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined') {
-    warn('❌ GSAP or ScrollTrigger not loaded');
+  if (typeof gsap === 'undefined') {
+    warn('❌ GSAP not defined');
+    return;
+  }
+  if (typeof ScrollTrigger === 'undefined') {
+    warn('❌ ScrollTrigger not defined');
     return;
   }
   if (typeof Lenis === 'undefined') {
-    warn('❌ Lenis not loaded');
+    warn('❌ Lenis not defined');
     return;
   }
   
-  log('🎅 Initializing frame-based scroll effect...');
+  log('✅ All dependencies loaded: GSAP, ScrollTrigger, Lenis');
   
   const totalFrames = 39; // Total extracted frames
   const framePath = 'frames/frame_';
   
-  // Initialize Lenis smooth scroll with proper lifecycle management
+  // Initialize Lenis smooth scroll
   const lenis = new Lenis({ 
     duration: 1.2, 
     smooth: true,
-    viewport: window.innerHeight
+    easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+    orientation: 'vertical',
+    gestureOrientation: 'vertical'
   });
-  
-  // Connect Lenis to RAF
-  let lenisAnimationId = null;
-  function raf(time) { 
-    lenis.raf(time); 
-    lenisAnimationId = requestAnimationFrame(raf); 
-  }
-  lenisAnimationId = requestAnimationFrame(raf);
   
   // Register GSAP plugin and connect Lenis
   gsap.registerPlugin(ScrollTrigger);
-  lenis.on('scroll', ScrollTrigger.update);
-  gsap.ticker.add((time) => lenis.raf(time * 1000));
-  gsap.ticker.lagSmoothing(0);
   
-  const startGSAPTimeline = () => {
-    try {
-      log('📹 Starting GSAP frame timeline...');
-      
-      let tl = gsap.timeline({ 
-        scrollTrigger: { 
-          trigger: ".premium-hero", 
-          start: "top top", 
-          end: "+=3500",
-          scrub: 1, 
-          pin: true,
-          markers: false,
-          onUpdate: (self) => { 
-            // Calculate which frame to show based on scroll progress
-            const frameNum = Math.ceil(self.progress * totalFrames);
-            const frameIndex = Math.max(1, Math.min(frameNum, totalFrames));
-            img.src = `${framePath}${String(frameIndex).padStart(4, '0')}.jpg`;
-          }
-        } 
-      });
-      
-      const animDuration = 1.0; // Animation duration for other elements
-      
-      // 1. Fade Text early
-      tl.to(".gs-reveal-text", { opacity: 0, y: -100, scale: 1.05, duration: animDuration * 0.2 }, 0);
-      
-      // 2. Pop the cards up
-      tl.fromTo(".glass-card", 
-        { opacity: 0, y: 150, filter: "blur(10px)" }, 
-        { opacity: 1, y: 0, filter: "blur(0px)", stagger: 0.05, duration: animDuration * 0.1, ease: "power2.out" }, 
-        animDuration * 0.01 
-      );
-      
-      log('✅ GSAP frame timeline created successfully', { totalFrames });
-      
-      // Preload all frames after timeline is set up
-      preloadFrames(totalFrames, framePath);
-    } catch (err) {
-      logErr('❌ Error initializing GSAP timeline:', err);
-    }
-  };
+  // Synchronize Lenis scroll with ScrollTrigger
+  lenis.on('scroll', ScrollTrigger.update);
+  
+  // Update Lenis using GSAP ticker (proper absolute time tracking)
+  let previousTime = 0;
+  gsap.ticker.add((time) => {
+    // time parameter is in seconds from GSAP ticker
+    // Convert to milliseconds for Lenis
+    lenis.raf(time * 1000);
+  });
+  
+  gsap.ticker.lagSmoothing(0);
   
   // Preload frames immediately (before scroll animation starts)
   const preloadFrames = (total, path) => {
@@ -368,9 +374,49 @@ function initVideoScrollEffects() {
     }
   };
   
-  // Start timeline with small delay to ensure DOM is ready
-  log('📋 Starting frame animation...');
-  setTimeout(startGSAPTimeline, 100);
+  // Start timeline immediately
+  try {
+    log('📹 Starting GSAP frame timeline...');
+    
+    let tl = gsap.timeline({ 
+      scrollTrigger: { 
+        trigger: ".premium-hero", 
+        start: "top top", 
+        end: "+=3500",
+        scrub: 1, 
+        pin: true,
+        markers: false,  // Set to true for debugging
+        onUpdate: (self) => { 
+          // Calculate which frame to show based on scroll progress
+          const frameNum = Math.ceil(self.progress * totalFrames);
+          const frameIndex = Math.max(1, Math.min(frameNum, totalFrames));
+          img.src = `${framePath}${String(frameIndex).padStart(4, '0')}.jpg`;
+        }
+      } 
+    });
+    
+    const animDuration = 1.0; // Animation duration for other elements
+    
+    // 1. Fade Text early
+    tl.to(".gs-reveal-text", { opacity: 0, y: -100, scale: 1.05, duration: animDuration * 0.2 }, 0);
+    
+    // 2. Pop the cards up
+    tl.fromTo(".glass-card", 
+      { opacity: 0, y: 150, filter: "blur(10px)" }, 
+      { opacity: 1, y: 0, filter: "blur(0px)", stagger: 0.05, duration: animDuration * 0.1, ease: "power2.out" }, 
+      animDuration * 0.01 
+    );
+    
+    log('✅ GSAP frame timeline created successfully', { totalFrames });
+    
+    // Refresh ScrollTrigger after timeline created
+    ScrollTrigger.refresh();
+    
+    // Preload all frames after timeline is set up
+    preloadFrames(totalFrames, framePath);
+  } catch (err) {
+    logErr('❌ Error initializing GSAP timeline:', err);
+  }
 }
 
 // ===================== API-DRIVEN AUTHENTICATION =====================
@@ -443,10 +489,8 @@ async function verifyOTP(type) {
   const name = document.getElementById('signupName')?.value.trim() || 'New User';
 
   try {
-    const res = await fetch(`${API_BASE_URL}/auth/verify-otp`, {
+    const res = await authFetch(`${API_BASE_URL}/auth/verify-otp`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
       body: JSON.stringify({ email, otp, name, type })
     });
 
@@ -764,7 +808,7 @@ async function renderListingDetail(id) {
 
       <div class="detail-stats-grid">
         <div class="detail-stat"><div class="detail-stat-val">${l.skinCount || 0}</div><div class="detail-stat-label">Prem. Skins</div></div>
-        <div class="detail-stat"><div class="detail-stat-val">${agentsLength}</div><div class="detail-stat-label">Agents</div></div>
+        <div class="detail-stat"><div class="detail-stat-val">${agentsCount}</div><div class="detail-stat-label">Agents</div></div>
         <div class="detail-stat"><div class="detail-stat-val">${l.level || 1}</div><div class="detail-stat-label">Level</div></div>
         <div class="detail-stat"><div class="detail-stat-val">${l.bpCompleted || 0}</div><div class="detail-stat-label">Battle Passes</div></div>
         <div class="detail-stat"><div class="detail-stat-val">${l.vpBalance || 0}</div><div class="detail-stat-label">VP Balance</div></div>

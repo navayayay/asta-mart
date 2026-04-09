@@ -1,11 +1,14 @@
-const CACHE_NAME = 'asta-mart-v1';
-const FRAME_URLS = [];
+// Cache versioning for automatic updates on deployment
+const CACHE_VERSION = 'v1.0.0';
+const CACHE_NAME = `asta-mart-${CACHE_VERSION}`;
 
-// Generate all frame URLs for caching
-for (let i = 1; i <= 39; i++) {
-  FRAME_URLS.push(`/frames/frame_${String(i).padStart(4, '0')}.jpg`);
-}
+// Essential frames to preload (improve first load performance)
+const ESSENTIAL_FRAME_IDS = [1, 10, 20, 39];  // Sample frames covering range
+const ESSENTIAL_FRAME_URLS = ESSENTIAL_FRAME_IDS.map(i => 
+  `/frames/frame_${String(i).padStart(4, '0')}.jpg`
+);
 
+// App shell resources
 const urlsToCache = [
   '/',
   '/index.html',
@@ -15,7 +18,7 @@ const urlsToCache = [
   '/asta_mart_logo_transparent.png',
   '/favicon-32x32.png',
   '/favicon-64x64.png',
-  ...FRAME_URLS
+  ...ESSENTIAL_FRAME_URLS  // Only essential frames on install
 ];
 
 // Install event: cache app shell and frames
@@ -58,8 +61,29 @@ self.addEventListener('activate', event => {
   );
 });
 
-// Fetch event: serve from cache, fall back to network
+// Fetch event: serve from cache, fallback to network, lazy-load frames
 self.addEventListener('fetch', event => {
+  // Lazy-load frames on demand (cache-first strategy)
+  if (event.request.url.includes('/frames/')) {
+    event.respondWith(
+      caches.open(CACHE_NAME)
+        .then(cache => 
+          cache.match(event.request)
+            .then(response => {
+              if (response) return response;
+              // Frame not cached, fetch and cache it
+              return fetch(event.request).then(res => {
+                if (res.ok) cache.put(event.request, res.clone());
+                return res;
+              });
+            })
+        )
+        .catch(() => fetch(event.request))
+    );
+    return;
+  }
+
+
   // Skip non-GET requests
   if (event.request.method !== 'GET') {
     return;

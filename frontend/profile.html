@@ -223,10 +223,8 @@ function saveProfileHub() {
    localStorage.setItem('am_seller_profile', JSON.stringify(profile));
    
    // Sync to backend via API
-   fetch(`${API_BASE_URL}/users/profile`, {
+   authFetch(`${API_BASE_URL}/users/profile`, {
      method: 'PATCH',
-     headers: getAuthHeaders(),
-     credentials: 'include',
      body: JSON.stringify(profileData)
    })
    .then(res => {

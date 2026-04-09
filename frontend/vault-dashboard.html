@@ -200,9 +200,18 @@ async function loadVault() {
   }
 
   try {
-    const res = await fetch(`${API_BASE_URL}/vault/user/${user.email}`, {
+    const res = await authFetch(`${API_BASE_URL}/vault/user/${user.email}`, {
       credentials: 'include'
     });
+    
+    // Handle 401 - token expired or invalid
+    if (res.status === 401) {
+      localStorage.removeItem('am_user');
+      alert('Your session has expired. Please log in again.');
+      window.location = 'index.html';
+      return;
+    }
+    
     if (!res.ok) throw new Error(await res.json().then(r => r.error));
     const vaultItems = await res.json();
     
@@ -270,9 +279,8 @@ async function syncToVault() {
   document.getElementById('syncBtn').disabled = true;
 
   try {
-    const res = await fetch(`${API_BASE_URL}/vault/sync`, {
+    const res = await authFetch(`${API_BASE_URL}/vault/sync`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ redirectUrl: url, ownerEmail: user.email }),
       credentials: 'include'
     });
@@ -293,10 +301,8 @@ async function syncToVault() {
 async function deleteVault(id) {
   if(!confirm("Remove this account from your Vault?")) return;
   try {
-    const res = await fetch(`${API_BASE_URL}/vault/${id}`, {
-      method: 'DELETE',
-      headers: getAuthHeaders(),
-      credentials: 'include'
+    const res = await authFetch(`${API_BASE_URL}/vault/${id}`, {
+      method: 'DELETE'
     });
     if (!res.ok) {
       const err = await res.json();

@@ -401,6 +401,35 @@ function removeImage() {
   document.getElementById('uploadZone').style.display = 'block';
 }
 
+function selectContact(element, method) {
+  // Toggle active class on contact chips
+  document.querySelectorAll('.contact-chips .chip').forEach(chip => chip.classList.remove('active'));
+  element.classList.add('active');
+  // Store selected method
+  localStorage.setItem('am_seller_preferred_contact', method);
+}
+
+function saveSellerProfile() {
+  const whatsapp = document.getElementById('setup-whatsapp')?.value.trim();
+  const discord = document.getElementById('setup-discord')?.value.trim();
+  const instagram = document.getElementById('setup-instagram')?.value.trim();
+  const upi = document.getElementById('setup-upi')?.value.trim();
+  const preferredContact = localStorage.getItem('am_seller_preferred_contact') || 'email';
+  
+  // Validate WhatsApp (required for Wa.me links)
+  if (!whatsapp) {
+    alert('WhatsApp number is required for contact links');
+    return;
+  }
+  
+  // Save profile to localStorage
+  const profile = { whatsapp, discord, instagram, upi, preferredContact };
+  localStorage.setItem('am_seller_profile', JSON.stringify(profile));
+  
+  // Close modal and show listing form
+  document.getElementById('sellerSetupModal').classList.add('hidden');
+}
+
 function nextStep(current, next) {
   document.getElementById('step' + current).classList.add('hidden');
   document.getElementById('step' + next).classList.remove('hidden');
@@ -421,9 +450,8 @@ async function processRiotURL() {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000); 
 
-    const res = await fetch(`${API_BASE_URL}/riot/sync-url`, {
+    const res = await authFetch(`${API_BASE_URL}/riot/sync-url`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ redirectUrl: pastedUrl }),
       signal: controller.signal
     });
@@ -580,6 +608,13 @@ async function submitListing() {
     
     if (!res.ok) {
       const errData = await res.json().catch(() => ({}));
+      // Handle validation errors from backend (array of field errors)
+      if (errData.errors && Array.isArray(errData.errors) && errData.errors.length > 0) {
+        const firstError = errData.errors[0];
+        const fieldName = firstError.param ? `${firstError.param}: ` : '';
+        throw new Error(fieldName + (firstError.msg || firstError.message || 'Validation error'));
+      }
+      // Handle single error message
       throw new Error(errData.error || 'Failed to save to database');
     }
 

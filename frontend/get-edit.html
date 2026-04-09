@@ -306,7 +306,7 @@ async function submitOrder() {
   const profile = JSON.parse(localStorage.getItem('am_seller_profile') || '{}');
 
   try {
-    await authFetch(`${API_BASE_URL}/orders/inventory-edit`, {
+    const res = await authFetch(`${API_BASE_URL}/orders/inventory-edit`, {
       method: 'POST',
       body: JSON.stringify({
         sellerName: user.name,
@@ -319,10 +319,15 @@ async function submitOrder() {
       })
     });
 
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.error || 'Failed to submit order');
+    }
+
     document.getElementById('step3').classList.add('hidden');
     document.getElementById('stepSuccess').classList.remove('hidden');
   } catch (err) {
-    alert('Error submitting order. Ensure backend is running.');
+    alert('Error submitting order: ' + (err.message || 'Ensure backend is running.'));
   }
 }
 </script>
