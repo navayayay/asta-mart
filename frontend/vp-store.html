@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VP Store - Asta Mart</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
+</head>
+<body class="dark-theme">
+    <nav class="navbar">
+        <a href="vp-store.html" class="nav-premium-btn">
+            <span class="nav-premium-inner" style="color:#ff4655;">🎯 VP Store</span>
+        </a>
+    </nav>
+
+    <main class="vp-store-container">
+        <section class="hero-banner" style="text-align: center; margin: 40px 0;">
+            <h1 style="font-family: var(--font-display); font-size: 3rem; color: var(--white);">VP STORE</h1>
+            <p style="color: var(--white-dim);">Top up Valorant Points for Southeast Asia regions</p>
+            <div style="height: 3px; width: 60px; background: var(--red); margin: 20px auto;"></div>
+        </section>
+
+        <section id="order-status-section" style="display: none; text-align: center; padding: 20px; background: var(--bg-card); border: 1px solid var(--accent-cyan); border-radius: 8px; margin-bottom: 30px;">
+            <h2 id="order-status-title">⏳ Checking Order Status...</h2>
+            <div id="order-status-details"></div>
+        </section>
+
+        <section id="region-selector" class="region-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 40px;">
+            </section>
+
+        <section id="package-grid" class="package-grid" style="display: none; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 40px;">
+            </section>
+
+        <section id="my-orders-section" style="display: none;">
+            <h3>My Recent VP Orders</h3>
+            <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
+                <thead>
+                    <tr style="border-bottom: 1px solid var(--border-color); text-align: left;">
+                        <th>Date</th><th>Region</th><th>VP</th><th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="my-orders-body"></tbody>
+            </table>
+        </section>
+    </main>
+
+    <div id="vp-purchase-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h2>Complete Purchase</h2>
+            <div id="modal-package-summary" style="margin: 20px 0; padding: 15px; background: var(--bg-dark); border-radius: 8px;"></div>
+            <div class="input-group">
+                <label>Your Riot UID for this Region</label>
+                <input type="text" id="vp-riot-uid" placeholder="e.g. 123456789">
+                <small style="color: var(--white-dim);">Find your UID in Valorant game settings</small>
+            </div>
+            <button id="btn-proceed-payment" class="btn btn-primary" style="width: 100%; margin-top: 15px;">Proceed to Payment</button>
+        </div>
+    </div>
+
+    <footer>
+        <li><a href="vp-store.html">VP Store</a></li>
+    </footer>
+
+    <script src="app.js"></script>
+    <script src="effects.js"></script>
+    <script>
+        // VP Store Logic
+        const cashfree = Cashfree({ mode: 'sandbox' }); // Change to 'production' on live
+        let activeRegion = null;
+        let packagesData = [];
+
+        // 1. Check for ?order_id in URL on load
+        const urlParams = new URLSearchParams(window.location.search);
+        const orderIdParam = urlParams.get('order_id');
+        
+        if (orderIdParam) {
+            document.getElementById('order-status-section').style.display = 'block';
+            pollOrderStatus(orderIdParam, 0);
+        } else {
+            fetchPackages();
+        }
+
+        async function fetchPackages() {
+            try {
+                const res = await fetch('/api/vp/packages');
+                const data = await res.json();
+                packagesData = data.regions;
+                renderRegions();
+            } catch (err) {
+                console.error("Failed to load packages.");
+            }
+        }
+
+        function renderRegions() {
+            const container = document.getElementById('region-selector');
+            container.innerHTML = packagesData.map(r => `
+                <div class="card region-card" onclick="selectRegion('${r.code}')" style="cursor: pointer; text-align: center; padding: 20px; border: 1px solid var(--border-color); border-radius: 8px;">
+                    <h3>${r.name}</h3>
+                </div>
+            `).join('');
+        }
+
+        window.selectRegion = (code) => {
+            activeRegion = packagesData.find(r => r.code === code);
+            document.getElementById('package-grid').style.display = 'grid';
+            renderPackages();
+        };
+
+        function renderPackages() {
+            const container = document.getElementById('package-grid');
+            container.innerHTML = activeRegion.packages.map(pkg => `
+                <div class="card package-card" style="padding: 20px; border: 1px solid var(--border-color); border-radius: 8px; text-align: center;">
+                    <h2 style="color: var(--red); font-size: 2rem;">${pkg.vpAmount} VP</h2>
+                    <p style="font-size: 1.2rem;">₹${pkg.priceINR}</p>
+                    <button class="btn btn-primary" onclick="openPurchaseModal('${pkg._id}')">Buy Now</button>
+                </div>
+            `).join('');
+        }
+
+        window.openPurchaseModal = (packageId) => {
+            // Assume checkAuth() exists in app.js
+            if (!localStorage.getItem('token')) {
+                alert('Please login to purchase VP.');
+                return;
+            }
+            const pkg = activeRegion.packages.find(p => p._id === packageId);
+            document.getElementById('modal-package-summary').innerHTML = `
+                <strong>Region:</strong> ${activeRegion.name} <br>
+                <strong>Package:</strong> ${pkg.vpAmount} VP <br>
+                <strong>Total:</strong> ₹${pkg.priceINR}
+            `;
+            document.getElementById('btn-proceed-payment').onclick = () => proceedToPayment(pkg._id);
+            document.getElementById('vp-purchase-modal').style.display = 'flex';
+        };
+
+        async function proceedToPayment(packageId) {
+            const uid = document.getElementById('vp-riot-uid').value;
+            if (!uid) return alert('Please enter your Riot UID');
+            
+            try {
+                // Fetch CSRF (assume fetchCsrfToken() from app.js)
+                const csrfResponse = await fetch('/api/csrf-token');
+                const { csrfToken } = await csrfResponse.json();
+
+                const res = await fetch('/api/vp/create-order', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'CSRF-Token': csrfToken },
+                    body: JSON.stringify({ packageId, riotUID: uid, region: activeRegion.code })
+                });
+                const data = await res.json();
+                if (data.error) return alert(data.error);
+
+                cashfree.checkout({ paymentSessionId: data.paymentSessionId });
+            } catch (err) {
+                alert('Failed to initiate payment.');
+            }
+        }
+
+        function pollOrderStatus(orderId, attempts) {
+            if (attempts > 12) {
+                document.getElementById('order-status-title').innerText = "Taking longer than expected. Check My Orders.";
+                return;
+            }
+
+            fetch(`/api/vp/order/${orderId}`)
+                .then(res => res.json())
+                .then(data => {
+                    const el = document.getElementById('order-status-title');
+                    const details = document.getElementById('order-status-details');
+                    
+                    if (data.paymentStatus === 'pending') {
+                        setTimeout(() => pollOrderStatus(orderId, attempts + 1), 5000);
+                    } else if (data.paymentStatus === 'paid' && data.fulfillmentStatus !== 'completed') {
+                        el.innerText = "✅ Payment received! Fulfilling your VP order...";
+                        setTimeout(() => pollOrderStatus(orderId, attempts + 1), 5000);
+                    } else if (data.fulfillmentStatus === 'completed') {
+                        el.innerText = "🎉 VP Topped Up!";
+                        details.innerHTML = `<pre>${JSON.stringify(data.deliveryData, null, 2)}</pre>`;
+                    } else {
+                        el.innerText = "❌ Fulfillment failed. Contact support.";
+                    }
+                });
+        }
+    </script>
+</body>
+</html>

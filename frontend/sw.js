@@ -15,6 +15,7 @@ const urlsToCache = [
   '/style.css',
   '/app.js',
   '/effects.js',
+  '/vp-store.html',
   '/asta_mart_logo_transparent.png',
   '/favicon-32x32.png',
   '/favicon-64x64.png',

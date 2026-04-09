@@ -64,6 +64,8 @@
     <button class="admin-tab active" onclick="switchAdminTab(this, 'pending')">⏳ Pending Approvals</button>
     <button class="admin-tab" onclick="switchAdminTab(this, 'orders')">📦 Edit Orders</button>
     <button class="admin-tab" onclick="switchAdminTab(this, 'listings')">🛑 Moderation (Active)</button>
+    <button class="admin-tab" onclick="switchAdminTab(this, 'vp-orders')">🎯 VP Orders</button>
+    <button class="admin-tab" onclick="switchAdminTab(this, 'vp-packages')">📦 VP Packages</button>
   </aside>
 
   <!-- MAIN CONTENT -->
@@ -120,6 +122,30 @@
         </thead>
         <tbody id="listingsTableBody"></tbody>
       </table>
+    </div>
+
+    <!-- VP ORDERS TAB -->
+    <div id="tab-vp-orders" class="hidden">
+      <h2 style="margin-bottom: 20px; font-family: var(--font-display); text-transform: uppercase;">VP Orders</h2>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Order ID</th>
+            <th>Buyer</th>
+            <th>VP</th>
+            <th>Payment</th>
+            <th>Fulfillment</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="vp-orders-tbody">
+        </tbody>
+      </table>
+    </div>
+
+    <!-- VP PACKAGES TAB -->
+    <div id="tab-vp-packages" class="hidden">
+      <h2 style="margin-bottom: 20px; font-family: var(--font-display); text-transform: uppercase;">Manage VP Packages</h2>
     </div>
 
   </main>

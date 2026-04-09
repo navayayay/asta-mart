@@ -85,11 +85,43 @@ const TransactionSchema = new mongoose.Schema({
   purchasedAt: { type: Date, default: Date.now }
 });
 
+// VP Order Schema
+const VPOrderSchema = new mongoose.Schema({
+    orderId: { type: String, required: true, unique: true },
+    buyerEmail: { type: String, required: true },
+    region: { type: String, required: true, enum: ['PH', 'ID', 'TH', 'SG', 'KH', 'MY'] },
+    packageId: { type: String, required: true },
+    packageName: String,
+    vpAmount: Number,
+    priceINR: { type: Number, required: true },
+    paymentStatus: { type: String, default: 'pending', enum: ['pending', 'paid', 'failed'] },
+    fulfillmentStatus: { type: String, default: 'pending', enum: ['pending', 'processing', 'completed', 'failed'] },
+    moogoldOrderId: String,
+    deliveryData: mongoose.Schema.Types.Mixed,
+    riotUID: { type: String, required: true, maxlength: 30 },
+    createdAt: { type: Date, default: Date.now },
+    updatedAt: { type: Date, default: Date.now }
+});
+
+// VP Package Schema
+const VPPackageSchema = new mongoose.Schema({
+    region: { type: String, required: true },
+    regionName: String,
+    vpAmount: Number,
+    packageName: String,
+    moogoldProductId: String,
+    priceINR: Number,
+    active: { type: Boolean, default: true },
+    sortOrder: { type: Number, default: 0 }
+});
+
 module.exports = {
   User: mongoose.model('User', UserSchema),
   Listing: mongoose.model('Listing', ListingSchema),
   Vault: mongoose.model('Vault', VaultSchema),
   Order: mongoose.model('Order', OrderSchema),
   OTP: mongoose.model('OTP', OTPSchema),
-  Transaction: mongoose.model('Transaction', TransactionSchema)
+  Transaction: mongoose.model('Transaction', TransactionSchema),
+  VPOrder: mongoose.model('VPOrder', VPOrderSchema),
+  VPPackage: mongoose.model('VPPackage', VPPackageSchema)
 };

@@ -26,17 +26,81 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
-const csrf = require('csurf');
+const csrf = require('@dr.pogodin/csurf');
 const rateLimit = require('express-rate-limit');
 const axios = require('axios');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
 const riotAuth = require('./riotAuth');
-const { User, Listing, Vault, Order, OTP, Transaction } = require('./models'); // Import all schemas
+const { User, Listing, Vault, Order, OTP, Transaction, VPOrder, VPPackage } = require('./models'); // Import all schemas
 const valorantSync = require('./jobs/valorantSync'); // Start Valorant daily sync on server boot
 
 const app = express();
+
+// Cashfree Webhook Route - BEFORE express.json() to parse raw body for signature validation
+app.post('/api/vp/webhook/cashfree', express.raw({ type: 'application/json' }), async (req, res) => {
+    try {
+        const signature = req.headers['x-webhook-signature'];
+        const timestamp = req.headers['x-webhook-timestamp'];
+        
+        // Verify Cashfree Signature
+        const signatureData = timestamp + req.body.toString('utf8');
+        const expectedSignature = crypto
+            .createHmac('sha256', process.env.CASHFREE_WEBHOOK_SECRET)
+            .update(signatureData)
+            .digest('base64');
+
+        if (signature !== expectedSignature) {
+            return res.status(401).json({ error: 'Invalid webhook signature' });
+        }
+
+        // Parse body now that signature is verified
+        const payload = JSON.parse(req.body.toString('utf8'));
+        
+        // Acknowledge Cashfree immediately to prevent retries
+        res.status(200).send('OK');
+
+        if (payload.type === 'PAYMENT_SUCCESS_WEBHOOK') {
+            const orderId = payload.data.order.order_id;
+            const order = await VPOrder.findOne({ orderId });
+
+            if (order && order.fulfillmentStatus !== 'completed') {
+                order.paymentStatus = 'paid';
+                order.fulfillmentStatus = 'processing';
+                await order.save();
+
+                // Fulfill via Moogold
+                const moogoldAuth = Buffer.from(`${process.env.MOOGOLD_PARTNER_ID}:${process.env.MOOGOLD_API_KEY}`).toString('base64');
+                try {
+                    const moogoldRes = await axios.post('https://moogold.com/wp-json/v1/api/order', {
+                        product_id: order.packageId,
+                        quantity: 1,
+                        fields: { User_ID: order.riotUID }
+                    }, {
+                        headers: {
+                            'Authorization': `Basic ${moogoldAuth}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+
+                    order.moogoldOrderId = moogoldRes.data.order_id || null;
+                    order.deliveryData = moogoldRes.data;
+                    order.fulfillmentStatus = 'completed';
+                } catch (error) {
+                    order.fulfillmentStatus = 'failed';
+                    console.error('Moogold fulfillment failed:', error.response?.data || error.message);
+                    // TODO: trigger admin email notification here using your nodemailer setup
+                }
+                await order.save();
+            }
+        }
+    } catch (err) {
+        console.error('Webhook error:', err);
+        if (!res.headersSent) res.status(500).json({ error: 'Webhook processing failed' });
+    }
+});
+
 app.use(express.json({ limit: '1mb' })); // DoS protection: safe default limit for JSON payloads
 app.use(cookieParser()); // Parse incoming cookies
 
@@ -170,6 +234,12 @@ const readLimiter = rateLimit({
   message: { error: 'Too many requests. Please wait before making another request.' },
   standardHeaders: false,
   legacyHeaders: false
+});
+
+const vpStoreLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10,
+  message: { error: 'Too many requests to the VP store. Please try again later.' }
 });
 
 // --- CSRF PROTECTION ---
@@ -960,6 +1030,126 @@ app.post('/api/orders/inventory-edit', requireAuth, csrfProtection, [
     }
 });
 
+// --- VP STORE API ---
+// Fetch Packages
+app.get('/api/vp/packages', vpStoreLimiter, async (req, res) => {
+    try {
+        const packages = await VPPackage.find({ active: true }).sort({ sortOrder: 1 });
+        const regionsMap = {};
+        
+        packages.forEach(pkg => {
+            if (!regionsMap[pkg.region]) {
+                regionsMap[pkg.region] = { code: pkg.region, name: pkg.regionName, packages: [] };
+            }
+            regionsMap[pkg.region].packages.push(pkg);
+        });
+
+        res.status(200).json({ regions: Object.values(regionsMap) });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch packages' });
+    }
+});
+
+// Create Order
+app.post('/api/vp/create-order', authenticateUser, csrfProtection, vpStoreLimiter, async (req, res) => {
+    try {
+        const { packageId, riotUID, region } = req.body;
+        const sanitizedUID = riotUID.replace(/[^a-zA-Z0-9#]/g, '').slice(0, 30); // Sanitize UID
+
+        if (!sanitizedUID) return res.status(400).json({ error: 'Invalid Riot UID' });
+
+        const pkg = await VPPackage.findOne({ _id: packageId, region, active: true });
+        if (!pkg) return res.status(400).json({ error: 'Invalid or inactive package' });
+
+        const orderId = `VP_${Date.now()}_${sanitizedUID.replace('#', '')}`;
+        const cashfreeUrl = process.env.CASHFREE_ENV === 'PROD' 
+            ? 'https://api.cashfree.com/pg/orders' 
+            : 'https://sandbox.cashfree.com/pg/orders';
+
+        // 1. Hit Cashfree API
+        const cfResponse = await axios.post(cashfreeUrl, {
+            order_id: orderId,
+            order_amount: pkg.priceINR,
+            order_currency: 'INR',
+            customer_details: {
+                customer_id: req.user.email.replace(/[^a-zA-Z0-9]/g, '').slice(0, 50),
+                customer_email: req.user.email,
+                customer_phone: '9999999999' // Dummy phone if not collected
+            },
+            order_meta: {
+                return_url: `${process.env.FRONTEND_URL}/vp-store.html?order_id={order_id}`
+            }
+        }, {
+            headers: {
+                'x-api-version': '2023-08-01',
+                'x-client-id': process.env.CASHFREE_APP_ID,
+                'x-client-secret': process.env.CASHFREE_SECRET_KEY
+            }
+        });
+
+        // 2. Save Order in DB
+        const newOrder = new VPOrder({
+            orderId,
+            buyerEmail: req.user.email,
+            region,
+            packageId: pkg.moogoldProductId,
+            packageName: pkg.packageName,
+            vpAmount: pkg.vpAmount,
+            priceINR: pkg.priceINR,
+            riotUID: sanitizedUID
+        });
+        await newOrder.save();
+
+        res.status(200).json({
+            orderId,
+            paymentSessionId: cfResponse.data.payment_session_id,
+            orderAmount: pkg.priceINR
+        });
+    } catch (error) {
+        console.error('Create order error:', error.response?.data || error.message);
+        res.status(500).json({ error: 'Failed to create order' });
+    }
+});
+
+// Get Single Order
+app.get('/api/vp/order/:orderId', authenticateUser, vpStoreLimiter, async (req, res) => {
+    try {
+        const order = await VPOrder.findOne({ orderId: req.params.orderId, buyerEmail: req.user.email });
+        if (!order) return res.status(404).json({ error: 'Order not found' });
+        
+        const responseData = {
+            orderId: order.orderId,
+            packageName: order.packageName,
+            vpAmount: order.vpAmount,
+            region: order.region,
+            paymentStatus: order.paymentStatus,
+            fulfillmentStatus: order.fulfillmentStatus,
+            createdAt: order.createdAt
+        };
+
+        if (order.fulfillmentStatus === 'completed') {
+            responseData.deliveryData = order.deliveryData;
+        }
+
+        res.status(200).json(responseData);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch order' });
+    }
+});
+
+// Get My Orders
+app.get('/api/vp/my-orders', authenticateUser, vpStoreLimiter, async (req, res) => {
+    try {
+        const orders = await VPOrder.find({ buyerEmail: req.user.email })
+            .select('-deliveryData') // Exclude delivery data from list view
+            .sort({ createdAt: -1 })
+            .limit(20);
+        res.status(200).json(orders);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch orders' });
+    }
+});
+
 // --- ADMIN ROUTES ---
 app.get('/api/admin/listings', adminLimiter, adminAuthJWT, async (req, res) => {
   try {
@@ -1014,6 +1204,72 @@ app.delete('/api/admin/listings/:id', adminLimiter, adminAuthJWT, async (req, re
     } catch (err) { 
       console.error('❌ Admin Listing Delete Error:', err);
       res.status(500).json({ error: 'An unexpected error occurred. Please try again.' }); 
+    }
+});
+
+// --- ADMIN VP STORE ROUTES ---
+app.get('/api/admin/vp/orders', adminLimiter, adminAuthJWT, async (req, res) => {
+    try {
+        const { page = 1, limit = 20, status } = req.query;
+        const query = status ? { fulfillmentStatus: status } : {};
+        
+        const orders = await VPOrder.find(query)
+            .sort({ createdAt: -1 })
+            .skip((page - 1) * limit)
+            .limit(Number(limit));
+            
+        res.status(200).json(orders);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch admin orders' });
+    }
+});
+
+app.post('/api/admin/vp/packages', adminLimiter, adminAuthJWT, csrfProtection, async (req, res) => {
+    try {
+        const pkg = new VPPackage(req.body);
+        await pkg.save();
+        res.status(201).json(pkg);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to create package' });
+    }
+});
+
+app.patch('/api/admin/vp/packages/:id', adminLimiter, adminAuthJWT, csrfProtection, async (req, res) => {
+    try {
+        const pkg = await VPPackage.findByIdAndUpdate(req.params.id, req.body, { new: true });
+        res.status(200).json(pkg);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to update package' });
+    }
+});
+
+app.post('/api/admin/vp/retry-fulfillment/:orderId', adminLimiter, adminAuthJWT, async (req, res) => {
+    try {
+        const order = await VPOrder.findOne({ orderId: req.params.orderId });
+        if (!order || order.paymentStatus !== 'paid' || order.fulfillmentStatus === 'completed') {
+            return res.status(400).json({ error: 'Order not eligible for retry' });
+        }
+
+        const moogoldAuth = Buffer.from(`${process.env.MOOGOLD_PARTNER_ID}:${process.env.MOOGOLD_API_KEY}`).toString('base64');
+        const moogoldRes = await axios.post('https://moogold.com/wp-json/v1/api/order', {
+            product_id: order.packageId,
+            quantity: 1,
+            fields: { User_ID: order.riotUID }
+        }, {
+            headers: {
+                'Authorization': `Basic ${moogoldAuth}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        order.moogoldOrderId = moogoldRes.data.order_id || null;
+        order.deliveryData = moogoldRes.data;
+        order.fulfillmentStatus = 'completed';
+        await order.save();
+
+        res.status(200).json(order);
+    } catch (error) {
+        res.status(500).json({ error: 'Fulfillment retry failed' });
     }
 });
 
