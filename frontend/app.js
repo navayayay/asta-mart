@@ -848,7 +848,7 @@ async function renderListingDetail(id) {
         <div class="inventory-tabs">
           <button class="inv-tab active" onclick="switchInvTab('skins', this)">Premium Skins (${totalSkinCount})</button>
           <button class="inv-tab" onclick="switchInvTab('battlepass', this)">Battlepass (${l?.battlepassTags?.length ?? 0})</button>
-          <button class="inv-tab" onclick="switchInvTab('agents', this)">Agents (${agentsLength})</button>
+          <button class="inv-tab" onclick="switchInvTab('agents', this)">Agents (${agentsCount})</button>
         </div>
         
         <div id="tab-skins" class="inv-content active">
