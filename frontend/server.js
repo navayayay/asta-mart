@@ -2,27 +2,14 @@ const express = require('express');
 const path = require('path');
 const app = express();
 
-// Handle /vp-checkout/:region path - serve vp-product.html
 app.get('/vp-checkout/:region', (req, res) => {
-  const filePath = path.join(__dirname, 'vp-product.html');
-  res.sendFile(filePath);
+  res.sendFile(path.join(__dirname, 'vp-product.html'));
 });
 
-// Serve static files (comes after routes)
-app.use(express.static(__dirname, {
-  maxAge: '1h',
-  etag: false,
-  setHeaders: (res, filepath) => {
-    if (filepath.endsWith('.html')) {
-      res.set('Cache-Control', 'no-cache, must-revalidate, max-age=0, public');
-    }
-  }
-}));
+app.use(express.static(__dirname, { maxAge: '1h', etag: false }));
 
-const PORT = process.env.PORT || 5500;
-app.listen(PORT, () => {
-  console.log(`✅ Frontend server running on http://localhost:${PORT}`);
-});
+app.listen(5500, () => console.log('✅ Server :5500'));
+
 #!/usr/bin/env node
 const express = require('express');
 const path = require('path');
