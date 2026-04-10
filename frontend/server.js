@@ -2,6 +2,21 @@ const express = require('express');
 const path = require('path');
 const app = express();
 
+// Route for /vp-checkout/:region - serves vp-product.html
+app.get('/vp-checkout/:region', (req, res) => {
+  res.sendFile(path.join(__dirname, 'vp-product.html'));
+});
+
+// Serve all static files
+app.use(express.static(__dirname));
+
+app.listen(5500, () => {
+  console.log('✅ Frontend server running on http://localhost:5500');
+});
+const express = require('express');
+const path = require('path');
+const app = express();
+
 app.get('/vp-checkout/:region', (req, res) => {
   res.sendFile(path.join(__dirname, 'vp-product.html'));
 });
@@ -9,10 +24,6 @@ app.get('/vp-checkout/:region', (req, res) => {
 app.use(express.static(__dirname, { maxAge: '1h', etag: false }));
 
 app.listen(5500, () => console.log('✅ Server :5500'));
-
-#!/usr/bin/env node
-const express = require('express');
-const path = require('path');
 const app = express();
 
 // Route for /vp-checkout/:region - serve vp-product.html for checkout pages
