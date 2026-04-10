@@ -899,10 +899,14 @@ app.post('/api/listings', requireAuth, csrfProtection, [
   body('images')
     .optional()
     .isArray({ max: 10 }).withMessage('Maximum 10 images allowed')
-    .custom(arr => arr.every(url => typeof url === 'string' &&
-      url.startsWith('https://') &&
-      url.length < 500
-    )).withMessage('All images must be valid HTTPS URLs under 500 characters'),
+    .custom(arr => arr.every(url => {
+      if (typeof url !== 'string') return false;
+      // Accept HTTPS URLs under 500 characters
+      if (url.startsWith('https://') && url.length < 500) return true;
+      // Accept base64 data URLs (up to 8MB base64)
+      if (url.startsWith('data:image/') && url.includes(';base64,') && url.length < 10485760) return true;
+      return false;
+    })).withMessage('Images must be valid HTTPS URLs (under 500 chars) or base64 data URLs (under 8MB)'),
   body('skinTags').optional().isArray({ max: 100 }).custom(arr => {
     return arr.every(item => {
       try {
@@ -940,7 +944,8 @@ app.post('/api/listings', requireAuth, csrfProtection, [
     // Only whitelist known safe fields - prevent mass assignment
     const { title, price, region, rank, peakRank, level, skinCount, agentsCount,
             emailAccess, banHistory, banDetail, limited, limitedDetail, vpBalance,
-            bpCompleted, skinTags, battlepassTags, agents, tags, aiSummary, images } = req.body;
+            bpCompleted, skinTags, battlepassTags, agents, tags, aiSummary, images,
+            sellerPhone, sellerDiscord } = req.body;
     
     const nl = new Listing({
       sellerId: req.user.email, // from auth middleware, not from body
@@ -948,6 +953,7 @@ app.post('/api/listings', requireAuth, csrfProtection, [
       title, price, region, rank, peakRank, level, skinCount, agentsCount,
       emailAccess, banHistory, banDetail, limited, limitedDetail, vpBalance,
       bpCompleted, skinTags, battlepassTags, agents, tags, aiSummary, images,
+      sellerPhone, sellerDiscord,
       status: 'pending'
     });
     await nl.save();

@@ -196,8 +196,8 @@ function loadDashboard(user) {
   const allListings = window.GLOBAL_LISTINGS || [];
   const userListings = window.USER_LISTINGS || [];
   
-  // For active: use global listings filtered by seller
-  const myActive = allListings.filter(l => l.sellerId === user.email && l.status === 'active');
+  // For active: show user's active + pending listings (pending awaiting admin approval)
+  const myActive = userListings.filter(l => l.status === 'active' || l.status === 'pending');
   
   // For pending and sold: use user's full listings
   const pending = userListings.filter(l => l.status === 'pending');
@@ -350,7 +350,7 @@ function toggleUserMenu() { document.getElementById('userMenu')?.classList.toggl
 function logout() { localStorage.removeItem('am_user'); location.href = 'index.html'; }
 </script>
 <noscript>
-  <div style="padding: 40px; text-align: center; background: #1a0f2e; color: #fff; font-family: 'Barlow', sans-serif;">
+  <div style="padding: 40px; text-align: center; background: var(--bg-card); color: var(--white-pure); font-family: 'Barlow', sans-serif;">
     <h2>JavaScript Required</h2>
     <p>This page requires JavaScript to be enabled to display your listings and seller dashboard.</p>
     <p>Please enable JavaScript in your browser settings and reload the page.</p>

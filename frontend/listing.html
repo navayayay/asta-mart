@@ -28,7 +28,7 @@
   .inventory-section { margin-top: 30px; background: rgba(255,255,255,0.02); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden; }
   .inventory-tabs { display: flex; border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(0,0,0,0.2); }
   .inv-tab { flex: 1; padding: 15px; background: transparent; border: none; color: var(--white-dim); font-family: var(--font-ui, 'Rajdhani', sans-serif); font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.3s; letter-spacing: 1px; }
-  .inv-tab:hover { background: rgba(255,255,255,0.05); color: #fff; }
+  .inv-tab:hover { background: rgba(255,255,255,0.05); color: var(--white-pure); }
   .inv-tab.active { background: rgba(0, 255, 240, 0.05); color: var(--accent-cyan); border-bottom: 2px solid var(--accent-cyan); }
   .inv-content { padding: 20px; display: none; }
   .inv-content.active { display: block; animation: fadeIn 0.3s ease; }
@@ -39,7 +39,7 @@
   .skin-card:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.4); }
   .skin-card img { height: 60px; object-fit: contain; margin-bottom: 15px; filter: drop-shadow(0px 4px 6px rgba(0,0,0,0.4)); }
   .skin-card .skin-icon-placeholder { font-size: 40px; margin-bottom: 15px; filter: drop-shadow(0px 4px 6px rgba(0,0,0,0.4)); }
-  .skin-card .skin-name { color: #fff; font-size: 14px; font-weight: 600; font-family: 'Barlow', sans-serif; }
+  .skin-card .skin-name { color: var(--white-pure); font-size: 14px; font-weight: 600; font-family: 'Barlow', sans-serif; }
   
   /* Dynamic Tier Borders */
   .tier-premium { border-top: 3px solid #d1548d; }   /* Pink */
@@ -269,7 +269,7 @@
   });
 </script>
 <noscript>
-  <div style="padding: 40px; text-align: center; background: #1a0f2e; color: #fff; font-family: 'Barlow', sans-serif;">
+  <div style="padding: 40px; text-align: center; background: var(--bg-card); color: var(--white-pure); font-family: 'Barlow', sans-serif;">
     <h2>JavaScript Required</h2>
     <p>This page requires JavaScript to be enabled to display listing details and functionality.</p>
     <p>Please enable JavaScript in your browser settings and reload the page.</p>

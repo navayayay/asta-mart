@@ -26,7 +26,7 @@
     <a href="get-edit.html" class="nav-premium-btn"><span class="nav-premium-inner">Get Inv Edit</span></a>
     <a href="vault-dashboard.html" class="nav-premium-btn"><span class="nav-premium-inner" style="color: var(--accent-cyan);">Asta Vault</span></a>
     <a href="vp-store.html" class="nav-premium-btn">
-      <span class="nav-premium-inner" style="color:#ff4655;">
+      <span class="nav-premium-inner" style="color:var(--red);">
         🎯 VP Store
       </span>
     </a>
@@ -128,7 +128,17 @@
       }
       
       const key = 'am_wishlist_' + user.email;
-      const savedIds = JSON.parse(localStorage.getItem(key) || '[]');
+      let savedIds = JSON.parse(localStorage.getItem(key) || '[]');
+      
+      // Filter out sold items
+      savedIds = savedIds.filter(savedId => {
+        const listing = GLOBAL_LISTINGS.find(l => (l._id || l.id).toString() === savedId.toString());
+        return !listing || listing.status !== 'sold';
+      });
+      
+      // Update localStorage with filtered list
+      localStorage.setItem(key, JSON.stringify(savedIds));
+      
       const savedListings = GLOBAL_LISTINGS.filter(l => savedIds.includes((l._id || l.id).toString()));
 
       if (savedListings.length === 0) {

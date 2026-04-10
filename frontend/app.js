@@ -160,10 +160,11 @@ function isSafeIconUrl(url) {
 function isSafeImageUrl(url) {
   if (!url || typeof url !== 'string') return false;
   try {
-    const u = new URL(url);
-    // Allow HTTPS URLs from most sources (backend already validates)
-    // but ensure it's not a javascript: or data: protocol
-    return u.protocol === 'https:' && url.length < 500;
+    // Allow HTTPS URLs (backend already validates)
+    if (url.startsWith('https://') && url.length < 500) return true;
+    // Allow base64 data URLs (compressed montages)
+    if (url.startsWith('data:image/') && url.includes(';base64,')) return true;
+    return false;
   } catch {
     return false;
   }
@@ -294,6 +295,19 @@ async function fetchAllListingsFromDB() {
     logErr('Failed to fetch listings from backend:', error);
     // M1: Show empty state instead of fake sample data
     GLOBAL_LISTINGS = [];
+  }
+}
+
+async function fetchUserListings(userEmail) {
+  try {
+    const res = await authFetch(`${API_BASE_URL}/user/listings`);
+    if (!res.ok) throw new Error('Failed to fetch user listings');
+    
+    const userListings = await res.json();
+    window.USER_LISTINGS = Array.isArray(userListings) ? userListings : [];
+  } catch (err) {
+    console.warn('Could not load user listings:', err);
+    window.USER_LISTINGS = [];
   }
 }
 
@@ -721,19 +735,36 @@ function renderListingCard(l) {
   const price = l.price || 0;
   const region = sanitize(l.region || 'AP');
   const skinCount = l.skinCount || 0;
-  const agentsCount = l.agentsCount || (l.agents ? l.agents.length : 0); 
+  const agentsCount = l.agentsCount || (l.agents ? l.agents.length : 0);
+  const isSold = l.status === 'sold';
   const saved = isWishlisted(idToUse);
   const inCompare = compareList.includes(idToUse);
   const imgHtml = (l?.images?.[0] && isSafeImageUrl(l.images[0])) ? `<img src="${l.images[0]}" alt="${sanitize(l?.title)}" loading="lazy">` : `<div class="card-img-placeholder">🎮</div>`;
   const badges = [];
+  if (isSold) badges.push('<span class="badge badge-sold" style="background: rgba(200,0,0,0.3); color: #ff6b6b; border: 1px solid rgba(200,0,0,0.5);">SOLD</span>');
   if (l.contactReveals > 10) badges.push('<span class="badge badge-hot">Hot</span>');
   if (l?.images && l.images.length >= 3) badges.push('<span class="badge badge-verified">Verified</span>');
   const cleanTags = (getCleanTags(l) || []).map(t => `<span class="pill" onclick="event.stopPropagation(); window.location='browse.html?tag=${t.replace('#','')}'">${ t}</span>`).join('');
 
+  const cardClickHandler = isSold ? '' : `onclick="window.location='listing.html?id=${idToUse}'"`;
+  const cardKeyHandler = isSold ? '' : `onkeypress="if(event.key==='Enter'){window.location='listing.html?id=${idToUse}';}"`;
+  const cardCursor = isSold ? 'style="cursor: default;"' : '';
+
+  const actionButton = isSold 
+    ? `<button class="btn-primary full" style="background: #ff4444; padding: 10px; font-size: 13px;" onclick="event.stopPropagation();toggleWishlist('${idToUse}', this)">Remove from Saved</button>`
+    : `<button class="bookmarkBtn ${saved ? 'saved' : ''}" onclick="event.stopPropagation();toggleWishlist('${idToUse}', this)" title="Save">
+        <span class="IconContainer">
+          <svg viewBox="0 0 384 512" height="0.9em" class="icon">
+            <path d="M0 48V487.7C0 501.1 10.9 512 24.3 512c5 0 9.9-1.5 14-4.4L192 400 345.7 507.6c4.1 2.9 9 4.4 14 4.4c13.4 0 24.3-10.9 24.3-24.3V48c0-26.5-21.5-48-48-48H48C21.5 0 0 21.5 0 48z"></path>
+          </svg>
+        </span>
+        <p class="text">${saved ? 'Saved' : 'Save'}</p>
+      </button>`;
+
   return `
-    <div class="listing-card" onclick="window.location='listing.html?id=${idToUse}'"
+    <div class="listing-card" ${cardClickHandler}
       role="link" tabindex="0" aria-label="${title}"
-      onkeypress="if(event.key==='Enter'){window.location='listing.html?id=${idToUse}';}">
+      ${cardKeyHandler} ${cardCursor}>
       <div class="card-img-wrap">
         ${imgHtml}
         <div class="card-badges">${badges.join('')}</div>
@@ -756,14 +787,7 @@ function renderListingCard(l) {
         <div class="card-footer">
           <div class="card-price">₹${price.toLocaleString('en-IN')}</div>
           <div class="card-actions">
-            <button class="bookmarkBtn ${saved ? 'saved' : ''}" onclick="event.stopPropagation();toggleWishlist('${idToUse}', this)" title="Save">
-              <span class="IconContainer">
-                <svg viewBox="0 0 384 512" height="0.9em" class="icon">
-                  <path d="M0 48V487.7C0 501.1 10.9 512 24.3 512c5 0 9.9-1.5 14-4.4L192 400 345.7 507.6c4.1 2.9 9 4.4 14 4.4c13.4 0 24.3-10.9 24.3-24.3V48c0-26.5-21.5-48-48-48H48C21.5 0 0 21.5 0 48z"></path>
-                </svg>
-              </span>
-              <p class="text">${saved ? 'Saved' : 'Save'}</p>
-            </button>
+            ${actionButton}
           </div>
         </div>
       </div>
@@ -1006,7 +1030,19 @@ function toggleWishlist(id, btn) {
 function updateCartBadge() {
   const user = JSON.parse(localStorage.getItem('am_user') || 'null');
   if (!user) return;
-  const list = JSON.parse(localStorage.getItem('am_wishlist_' + user.email) || '[]');
+  const key = 'am_wishlist_' + user.email;
+  let list = JSON.parse(localStorage.getItem(key) || '[]');
+  
+  // Remove sold items automatically
+  const allListings = window.GLOBAL_LISTINGS || [];
+  list = list.filter(savedId => {
+    const listing = allListings.find(l => (l._id || l.id).toString() === savedId.toString());
+    return !listing || listing.status !== 'sold';
+  });
+  
+  // Update localStorage with filtered list
+  localStorage.setItem(key, JSON.stringify(list));
+  
   const badge = document.getElementById('navCartBadge');
   if (badge) {
     badge.textContent = list.length;

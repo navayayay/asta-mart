@@ -12,15 +12,15 @@
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 <style>
-  body { background-color: #050508; color: #fff; }
+  body { background-color: var(--bg-primary); color: var(--white-pure); }
   .admin-header { border-bottom: 1px solid var(--accent-cyan); padding: 20px 0; margin-bottom: 30px; background: rgba(0, 255, 240, 0.02); }
-  .admin-title { font-family: var(--font-display); font-size: 32px; font-weight: 900; text-transform: uppercase; color: #fff; }
+  .admin-title { font-family: var(--font-display); font-size: 32px; font-weight: 900; text-transform: uppercase; color: var(--white-pure); }
   .admin-title span { color: var(--accent-cyan); }
   
   .dashboard-grid { display: grid; grid-template-columns: 250px 1fr; gap: 30px; }
   .admin-sidebar { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 20px; height: fit-content; }
   .admin-tab { width: 100%; text-align: left; padding: 12px 15px; background: transparent; border: none; color: var(--white-dim); font-family: var(--font-ui); font-size: 15px; font-weight: bold; cursor: pointer; border-radius: 6px; transition: 0.2s; margin-bottom: 5px; }
-  .admin-tab:hover { background: rgba(255,255,255,0.05); color: #fff; }
+  .admin-tab:hover { background: rgba(255,255,255,0.05); color: var(--white-pure); }
   .admin-tab.active { background: rgba(63, 233, 255, 0.1); color: var(--accent-cyan); border-left: 3px solid var(--accent-cyan); border-radius: 0 6px 6px 0; }
 
   .data-table { width: 100%; border-collapse: collapse; background: rgba(0,0,0,0.4); border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.05); }
@@ -38,12 +38,12 @@
 <body>
 
 <!-- ADMIN LOGIN GATE -->
-<div id="adminLoginGate" style="max-width:400px;margin:100px auto;text-align:center;padding:40px;border:1px solid rgba(63,233,255,0.3);border-radius:12px;background:rgba(0,255,240,0.02);">
-  <h2 style="font-family:var(--font-display);font-size:28px;color:#fff;margin-bottom:10px;">ASTA ADMIN</h2>
+<div id="adminLoginGate" style="max-width:400px;margin:100px auto;text-align:center;padding:40px;border:1px solid var(--accent-cyan-border);border-radius:12px;background:var(--accent-cyan-glow);">
+  <h2 style="font-family:var(--font-display);font-size:28px;color:var(--white-pure);margin-bottom:10px;">ASTA ADMIN</h2>
   <p style="color:var(--white-dim);margin-bottom:24px;font-size:14px;">Enter your admin secret to continue</p>
   <input type="password" id="adminKeyInput" placeholder="Enter admin secret" 
     onkeypress="if(event.key==='Enter') submitAdminSecret()"
-    style="width:100%;padding:12px 15px;margin:16px 0;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:6px;color:#fff;font-family:var(--font-ui);font-size:14px;box-sizing:border-box;">
+    style="width:100%;padding:12px 15px;margin:16px 0;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:6px;color:var(--white-pure);font-family:var(--font-ui);font-size:14px;box-sizing:border-box;">
   <button class="btn-primary" onclick="submitAdminSecret()" style="width:100%;padding:12px;margin-top:8px;cursor:pointer;">Authenticate</button>
   <a href="index.html" style="display:block;margin-top:16px;color:var(--white-dim);text-decoration:none;font-size:13px;">← Back to Site</a>
 </div>
@@ -292,7 +292,7 @@ async function loadAllAdminData() {
         const listingsBody = document.getElementById('listingsTableBody');
         listingsBody.innerHTML = active.map(l => `
             <tr>
-                <td><a href="listing.html?id=${l._id}" target="_blank" style="color: #fff; text-decoration: none;"><strong>${sanitize(l.title)}</strong></a></td>
+                <td><a href="listing.html?id=${l._id}" target="_blank" style="color:var(--white-pure); text-decoration: none;"><strong>${sanitize(l.title)}</strong></a></td>
                 <td style="color: var(--white-dim);">${sanitize(l.sellerId)}</td>
                 <td style="color: var(--red); font-weight: bold;">₹${l.price}</td>
                 <td><span style="color: ${l.status === 'sold' ? 'var(--white-dim)' : 'var(--accent-green)'}">${l.status.toUpperCase()}</span></td>
