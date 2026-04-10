@@ -906,7 +906,7 @@ async function renderListingDetail(id) {
         </div>
 
         <div class="contact-revealed" id="contactRevealed" style="display:none; margin-top: 16px;">
-          ${l.sellerId ? `<div class="contact-method" style="padding: 12px; background: rgba(0,0,0,0.3); margin-bottom: 8px; border-radius: 6px; font-family: var(--font-mono); font-size: 12px; display: flex; align-items: center; gap: 8px;"><span style="font-size: 16px;">✉️</span> <a href="mailto:${sanitize(l.sellerId)}" style="color: var(--accent-cyan); text-decoration: none;">${sanitize(l.sellerId)}</a></div>` : ''}
+          ${l.sellerId ? `<div class="contact-method" style="padding: 12px; background: rgba(20, 15, 23, 0.3); margin-bottom: 8px; border-radius: 6px; font-family: var(--font-mono); font-size: 12px; display: flex; align-items: center; gap: 8px;"><span style="font-size: 16px;">✉️</span> <a href="mailto:${sanitize(l.sellerId)}" style="color: #730c1e; text-decoration: none;">${sanitize(l.sellerId)}</a></div>` : ''}
           <div id="extraContactMethods"></div>
           ${l.sellerPhone ? `<button class="btn-primary full" style="margin-top: 10px; background: #25D366; color: #fff; padding: 16px; font-size: 16px;" onclick="openWhatsApp('${idToUse}')">💬 Message on WhatsApp</button>` : ''}
         </div>
@@ -939,7 +939,7 @@ async function revealContact(id) {
     const contactData = await response.json();
     const l = getListing(id);
     let extraHtml = '';
-    if (contactData.sellerId) extraHtml += `<div class="contact-method" style="padding: 12px; background: rgba(0,0,0,0.3); margin-bottom: 8px; border-radius: 6px; font-family: var(--font-mono); font-size: 12px; display: flex; align-items: center; gap: 8px;"><span style="font-size: 16px;">✉️</span> <a href="mailto:${sanitize(contactData.sellerId)}" style="color: var(--accent-cyan); text-decoration: none;">${sanitize(contactData.sellerId)}</a></div>`;
+    if (contactData.sellerId) extraHtml += `<div class="contact-method" style="padding: 12px; background: rgba(20, 15, 23, 0.3); margin-bottom: 8px; border-radius: 6px; font-family: var(--font-mono); font-size: 12px; display: flex; align-items: center; gap: 8px;"><span style="font-size: 16px;">✉️</span> <a href="mailto:${sanitize(contactData.sellerId)}" style="color: #730c1e; text-decoration: none;">${sanitize(contactData.sellerId)}</a></div>`;
     if (contactData.sellerDiscord) extraHtml += `<div class="contact-method" style="padding: 12px; background: rgba(0,0,0,0.3); margin-bottom: 8px; border-radius: 6px; font-family: var(--font-mono); font-size: 12px; display: flex; align-items: center; gap: 8px;"><span style="font-size: 16px;">🎮</span> <strong>${sanitize(contactData.sellerDiscord)}</strong></div>`;
     if (contactData.sellerPhone) extraHtml += `<div class="contact-method" style="padding: 12px; background: rgba(0,0,0,0.3); margin-bottom: 8px; border-radius: 6px; font-family: var(--font-mono); font-size: 12px; display: flex; align-items: center; gap: 8px;"><span style="font-size: 16px;">📱</span> <strong>${sanitize(contactData.sellerPhone)}</strong></div>`;
     if (contactData.sellerPhone) extraHtml += `<button class="btn-primary full" style="margin-top: 10px; background: #25D366; color: #fff; padding: 16px; font-size: 16px;" onclick="openWhatsAppWithPhone('${id}', '${contactData.sellerPhone.replace(/[^0-9]/g, '')}', '${(l ? l.sellerName : 'there').replace(/'/g, "\\'")}')">\ud83d\udcac Message on WhatsApp</button>`;
