@@ -12,6 +12,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
+<script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
 <style>
   .api-terminal { background: var(--bg-primary); border: 1px solid var(--border-dim); border-radius: 8px; padding: 20px; font-family: monospace; color: #0f0; margin-top: 20px; display: none; }
   .api-log { margin-bottom: 5px; opacity: 0; animation: fadeIn 0.3s forwards; }
@@ -194,29 +195,21 @@
 
     <!-- STEP 3: PAYMENT -->
     <div class="form-step hidden" id="step3">
-      <h2 class="step-title">Order Summary & Payment</h2>
+      <h2 class="step-title">Complete Your Payment</h2>
       
-      <div class="upi-box">
-        <h3 style="color: var(--white-dim); text-transform: uppercase; font-family: var(--font-mono); font-size: 14px;">Total Premium Skins Found: <span id="checkout-skin-count" style="color: var(--white-pure);">0</span></h3>
-        <p style="font-size: 12px; color: var(--white-dim); margin-bottom: 20px;">Pricing: ₹3 per skin (<=10 skins) | ₹2 per skin (>10 skins)</p>
+      <div style="background: rgba(255,70,85,0.05); border: 1px solid rgba(255,70,85,0.2); border-radius: 8px; padding: 30px; text-align: center; margin-bottom: 30px;">
+        <h3 style="color: var(--white-dim); text-transform: uppercase; font-family: var(--font-mono); font-size: 14px; margin-bottom: 15px;">Total Premium Skins Found: <span id="checkout-skin-count" style="color: var(--white-pure);">0</span></h3>
+        <p style="font-size: 12px; color: var(--white-dim); margin-bottom: 30px;">Pricing: ₹3 per skin (≤10 skins) | ₹2 per skin (>10 skins)</p>
         
-        <div class="upi-amount" id="checkout-price">₹--</div>
+        <div style="font-family: var(--font-display); font-size: 48px; color: var(--red); font-weight: 900; margin-bottom: 30px;" id="checkout-price">₹--</div>
         
-        <div style="margin: 30px 0; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 30px;">
-          <p style="color: var(--white-dim); font-size: 14px;">Scan or enter this UPI ID in your payment app to complete your order:</p>
-          <div class="upi-id" id="dynamicUpiId">Loading...</div>
-        </div>
-
-        <div class="form-group" style="text-align: left; margin-top: 20px;">
-          <label>Enter 12-Digit UPI Transaction ID / UTR *</label>
-          <input type="text" class="auth-input" id="utr-number" placeholder="e.g. 312345678901">
-          <p style="font-size: 11px; color: var(--accent-cyan); margin-top: 6px;">We need this to verify your payment. Orders without a valid UTR will be ignored.</p>
-        </div>
+        <p style="color: var(--white-dim); font-size: 14px; margin-bottom: 20px;">Click the button below to securely pay via Cashfree. We accept all major payment methods.</p>
+        
+        <button class="btn-primary large full" id="cashfree-btn" onclick="handleCashfreePayment()" style="padding: 16px; font-size: 16px; font-weight: bold;">💳 Pay Now with Cashfree</button>
       </div>
 
-      <div class="btn-row" style="margin-top: 40px;">
+      <div class="btn-row" style="margin-top: 20px;">
         <button class="btn-ghost" onclick="window.location.reload()">Cancel</button>
-        <button class="btn-primary large" onclick="submitOrder()">✅ Verify Payment & Order</button>
       </div>
     </div>
 
