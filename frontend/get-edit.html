@@ -232,6 +232,11 @@
 <script>
 let parsedRiotData = {};
 let finalPrice = 0;
+let cashfree = null;
+
+if (typeof window.Cashfree !== 'undefined') {
+  cashfree = window.Cashfree({ mode: 'sandbox' });
+}
 
 document.addEventListener('DOMContentLoaded', () => {
   const user = JSON.parse(localStorage.getItem('am_user') || 'null');
@@ -240,19 +245,6 @@ document.addEventListener('DOMContentLoaded', () => {
   } else {
     document.getElementById('listingForm').classList.remove('hidden');
   }
-  
-  // Load UPI ID dynamically
-  fetch(`${API_BASE_URL}/config/payment-upi`)
-    .then(r => r.json())
-    .then(data => {
-      const el = document.getElementById('dynamicUpiId');
-      if (el) el.textContent = data.upi || 'Contact seller';
-    })
-    .catch(err => {
-      console.error('Failed to load UPI:', err);
-      const el = document.getElementById('dynamicUpiId');
-      if (el) el.textContent = 'Contact seller for payment details';
-    });
 });
 
 function nextStep(current, next) {
@@ -296,36 +288,57 @@ async function processRiotURL() {
   }
 }
 
-async function submitOrder() {
-  const utr = document.getElementById('utr-number').value.trim();
-  if (!utr || utr.length < 6) return alert('Please enter a valid UPI Transaction ID.');
-
+async function handleCashfreePayment() {
   const user = JSON.parse(localStorage.getItem('am_user'));
   const profile = JSON.parse(localStorage.getItem('am_seller_profile') || '{}');
 
+  if (!user) {
+    alert('Please log in to proceed with payment.');
+    return;
+  }
+
+  if (!cashfree) {
+    alert('Payment system is not loaded. Please refresh the page and try again.');
+    return;
+  }
+
   try {
-    const res = await authFetch(`${API_BASE_URL}/orders/inventory-edit`, {
+    const csrfResponse = await fetch(`${API_BASE_URL}/csrf-token`, { credentials: 'include' });
+    const { csrfToken } = await csrfResponse.json();
+
+    const res = await fetch(`${API_BASE_URL}/orders/inventory-edit/create-cashfree`, {
       method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'CSRF-Token': csrfToken
+      },
+      credentials: 'include',
       body: JSON.stringify({
         sellerName: user.name,
         sellerPhone: profile.whatsapp,
         sellerDiscord: profile.discord,
-        title: "Standalone Edit Order",
+        title: "Custom Inventory Edit",
         skins: parsedRiotData.premiumSkins.map(s => s.name),
-        price: finalPrice,
-        transactionId: utr
+        price: finalPrice
       })
     });
 
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({}));
-      throw new Error(errData.error || 'Failed to submit order');
+    const data = await res.json();
+    if (data.error) {
+      alert(`Payment error: ${data.error}`);
+      return;
     }
 
-    document.getElementById('step3').classList.add('hidden');
-    document.getElementById('stepSuccess').classList.remove('hidden');
+    if (!data.paymentSessionId) {
+      alert('Failed to initialize payment. Please try again.');
+      return;
+    }
+
+    // Initiate Cashfree checkout
+    cashfree.checkout({ paymentSessionId: data.paymentSessionId });
   } catch (err) {
-    alert('Error submitting order: ' + (err.message || 'Ensure backend is running.'));
+    console.error('Cashfree Payment Error:', err);
+    alert(`Failed to initiate payment: ${err.message}`);
   }
 }
 </script>

@@ -1009,6 +1009,69 @@ app.patch('/api/listings/:id/status', requireAuth, csrfProtection, [
 });
 
 // --- ORDERS API ---
+app.post('/api/orders/inventory-edit/create-cashfree', requireAuth, csrfProtection, async (req, res) => {
+  try {
+    const { sellerName, sellerPhone, sellerDiscord, title, skins, price } = req.body;
+
+    if (!price || price < 0 || price > 100000) {
+      return res.status(400).json({ error: 'Invalid price' });
+    }
+
+    const orderId = `EDIT_${Date.now()}_${req.user.email.replace(/[^a-zA-Z0-9]/g, '').slice(0, 20)}`;
+    const cashfreeUrl = process.env.CASHFREE_ENV === 'PROD' 
+      ? 'https://api.cashfree.com/pg/orders' 
+      : 'https://sandbox.cashfree.com/pg/orders';
+
+    // 1. Create Cashfree order
+    const cfResponse = await axios.post(cashfreeUrl, {
+      order_id: orderId,
+      order_amount: price,
+      order_currency: 'INR',
+      customer_details: {
+        customer_id: req.user.email.replace(/[^a-zA-Z0-9]/g, '').slice(0, 50),
+        customer_email: req.user.email,
+        customer_phone: sellerPhone || '9999999999'
+      },
+      order_meta: {
+        return_url: `${process.env.FRONTEND_URL}/get-edit.html?order_id={order_id}`
+      }
+    }, {
+      headers: {
+        'x-api-version': '2023-08-01',
+        'x-client-id': process.env.CASHFREE_APP_ID,
+        'x-client-secret': process.env.CASHFREE_SECRET_KEY
+      }
+    });
+
+    if (!cfResponse.data || !cfResponse.data.payment_session_id) {
+      return res.status(400).json({ error: 'Failed to create payment session' });
+    }
+
+    // 2. Save order in DB
+    const newOrder = new Order({
+      sellerName: req.user.name,
+      sellerId: req.user.email,
+      title: title || "Custom Inventory Edit",
+      price,
+      status: 'pending',
+      paymentMethod: 'cashfree',
+      cashfreeOrderId: orderId,
+      skins: skins || [],
+      sellerPhone,
+      sellerDiscord
+    });
+    await newOrder.save();
+
+    res.status(200).json({
+      orderId,
+      paymentSessionId: cfResponse.data.payment_session_id
+    });
+  } catch (err) {
+    console.error('Cashfree order creation error:', err.message);
+    res.status(500).json({ error: 'Failed to create payment order' });
+  }
+});
+
 app.post('/api/orders/inventory-edit', requireAuth, csrfProtection, [
   body('title').trim().notEmpty().isLength({ max: 200 }),
   body('price').isFloat({ min: 0, max: 10000000 }),
