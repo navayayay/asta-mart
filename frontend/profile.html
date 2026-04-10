@@ -112,7 +112,7 @@
 
   <div class="hub-grid">
     
-    <div class="hub-card" style="border-color: var(--accent-cyan); background: linear-gradient(180deg, rgba(15,10,30,0.8) 0%, rgba(0, 255, 240, 0.05) 100%);">
+    <div class="hub-card">
       <div class="hub-card-title">💼 Manage Listings</div>
       
       <div class="hub-stat-row"><span>Active Listings</span> <span id="stat-active" style="color: var(--accent-cyan);">...</span></div>
@@ -144,18 +144,18 @@
       
       <div class="form-group" style="margin-bottom: 10px;">
         <label style="font-size: 12px;">WhatsApp Number</label>
-        <input type="tel" class="auth-input" id="prof-whatsapp" placeholder="+91..." style="padding: 10px; font-size: 13px;">
+        <input type="tel" class="auth-input" id="prof-whatsapp" placeholder="+91..." style="padding: 10px; font-size: 13px;" readonly>
       </div>
       <div class="form-group" style="margin-bottom: 10px;">
         <label style="font-size: 12px;">Discord Username</label>
-        <input type="text" class="auth-input" id="prof-discord" placeholder="user#1234" style="padding: 10px; font-size: 13px;">
+        <input type="text" class="auth-input" id="prof-discord" placeholder="user#1234" style="padding: 10px; font-size: 13px;" readonly>
       </div>
       <div class="form-group" style="margin-bottom: 10px;">
         <label style="font-size: 12px;">UPI ID (for payments)</label>
-        <input type="text" class="auth-input" id="prof-upi" placeholder="yourname@upi" style="padding: 10px; font-size: 13px;">
+        <input type="text" class="auth-input" id="prof-upi" placeholder="yourname@upi" style="padding: 10px; font-size: 13px;" readonly>
       </div>
       
-      <button class="btn-primary full" onclick="saveProfileHub()" style="margin-top: auto;">Save Identity Settings</button>
+      <button class="btn-primary full" id="profileIdentityBtn" onclick="toggleProfileEdit()" style="margin-top: auto;">Edit Identity</button>
       <div id="profileSaved" class="success-msg hidden" style="margin-top: 10px; font-size: 12px; text-align: center; color: var(--accent-green);">✅ Settings Updated Successfully!</div>
     </div>
 
@@ -212,10 +212,30 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 });
 
+function toggleProfileEdit() {
+  const btn = document.getElementById('profileIdentityBtn');
+  const whatsappEl = document.getElementById('prof-whatsapp');
+  const discordEl = document.getElementById('prof-discord');
+  const upiEl = document.getElementById('prof-upi');
+  
+  if (btn.textContent.includes('Edit')) {
+    // Switch to edit mode
+    btn.textContent = 'Save Identity Settings';
+    whatsappEl.removeAttribute('readonly');
+    discordEl.removeAttribute('readonly');
+    upiEl.removeAttribute('readonly');
+    document.getElementById('profileSaved').classList.add('hidden');
+  } else {
+    // Save and switch back to view mode
+    saveProfileHub();
+  }
+}
+
 function saveProfileHub() {
    const whatsappEl = document.getElementById('prof-whatsapp');
    const discordEl = document.getElementById('prof-discord');
    const upiEl = document.getElementById('prof-upi');
+   const btn = document.getElementById('profileIdentityBtn');
    
    const profileData = {};
    if (whatsappEl) profileData.whatsapp = whatsappEl.value.trim();
@@ -226,6 +246,14 @@ function saveProfileHub() {
    const profile = JSON.parse(localStorage.getItem('am_seller_profile') || '{}');
    Object.assign(profile, profileData);
    localStorage.setItem('am_seller_profile', JSON.stringify(profile));
+   
+   // Make inputs readonly
+   whatsappEl.setAttribute('readonly', '');
+   discordEl.setAttribute('readonly', '');
+   upiEl.setAttribute('readonly', '');
+   
+   // Change button to Edit
+   btn.textContent = 'Edit Identity';
    
    // Sync to backend via API
    authFetch(`${API_BASE_URL}/users/profile`, {
@@ -238,7 +266,7 @@ function saveProfileHub() {
    })
    .then(data => {
      // Server save successful
-     document.getElementById('profileSaved').textContent = '✅ Saved to server!';
+     document.getElementById('profileSaved').textContent = '✅ Settings Updated Successfully!';
      document.getElementById('profileSaved').style.color = 'var(--accent-green)';
      document.getElementById('profileSaved').classList.remove('hidden');
      setTimeout(() => document.getElementById('profileSaved').classList.add('hidden'), 3000);

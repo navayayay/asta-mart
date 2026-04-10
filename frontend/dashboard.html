@@ -156,10 +156,10 @@
       <div class="profile-edit-box">
         <h3>Your Seller Profile</h3>
         <div class="setup-grid">
-          <div class="form-group"><label>WhatsApp</label><input type="tel" class="auth-input" id="prof-whatsapp"></div>
-          <div class="form-group"><label>Discord</label><input type="text" class="auth-input" id="prof-discord"></div>
+          <div class="form-group"><label>WhatsApp</label><input type="tel" class="auth-input" id="prof-whatsapp" readonly></div>
+          <div class="form-group"><label>Discord</label><input type="text" class="auth-input" id="prof-discord" readonly></div>
         </div>
-        <button class="btn-primary" onclick="updateProfile()">Save Profile</button>
+        <button class="btn-primary" id="dashProfileBtn" onclick="toggleDashboardProfileEdit()">Edit Profile</button>
         <div id="profileSaved" class="success-msg hidden">✅ Saved!</div>
       </div>
     </div>
@@ -309,13 +309,40 @@ async function deleteListing(id) {
   }
 }
 
+function toggleDashboardProfileEdit() {
+  const btn = document.getElementById('dashProfileBtn');
+  const whatsappEl = document.getElementById('prof-whatsapp');
+  const discordEl = document.getElementById('prof-discord');
+  
+  if (btn.textContent.includes('Edit')) {
+    // Switch to edit mode
+    btn.textContent = 'Save Profile';
+    whatsappEl.removeAttribute('readonly');
+    discordEl.removeAttribute('readonly');
+    document.getElementById('profileSaved').classList.add('hidden');
+  } else {
+    // Save and switch back to view mode
+    updateProfile();
+  }
+}
+
 function updateProfile() {
   const discord = document.getElementById('prof-discord').value;
   const whatsapp = document.getElementById('prof-whatsapp').value;
+  const btn = document.getElementById('dashProfileBtn');
+  const whatsappEl = document.getElementById('prof-whatsapp');
+  const discordEl = document.getElementById('prof-discord');
   
   // Save to localStorage for offline compatibility
   const profile = { discord, whatsapp };
   localStorage.setItem('am_seller_profile', JSON.stringify(profile));
+  
+  // Make inputs readonly
+  whatsappEl.setAttribute('readonly', '');
+  discordEl.setAttribute('readonly', '');
+  
+  // Change button to Edit
+  btn.textContent = 'Edit Profile';
   
   // Sync to backend
   authFetch(`${API_BASE_URL}/users/profile`, {
