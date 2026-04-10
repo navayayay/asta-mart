@@ -16,7 +16,7 @@
 </head>
 <body>
 
-<nav class="navbar" aria-label="Main Navigation">
+<nav class="navbar">
   <a href="index.html" class="brand-logo-link">
     <img src="asta_mart_logo_transparent.png" alt="Asta Mart" class="nav-brand-img">
   </a>
@@ -24,10 +24,10 @@
   <div class="nav-links" style="gap: 15px; align-items: center;">
     <a href="browse.html" class="nav-premium-btn"><span class="nav-premium-inner">Browse Accounts</span></a>
     <a href="get-edit.html" class="nav-premium-btn"><span class="nav-premium-inner">Get Inv Edit</span></a>
-    <a href="vault-dashboard.html" class="nav-premium-btn"><span class="nav-premium-inner" style="color: var(--accent-cyan);">Asta Vault</span></a>
+    <a href="vault-dashboard.html" class="nav-premium-btn" id="vaultNavBtn"><span class="nav-premium-inner">Asta Vault</span></a>
     <a href="vp-store.html" class="nav-premium-btn">
-      <span class="nav-premium-inner" style="color:var(--red);">
-        🎯 VP Store
+      <span class="nav-premium-inner">
+        VP Store
       </span>
     </a>
   </div>
@@ -123,17 +123,20 @@
     if (!user) { window.location.href = 'index.html'; return; }
     
     try {
-      if (typeof GLOBAL_LISTINGS === 'undefined' || GLOBAL_LISTINGS.length === 0) {
-        await fetchAllListingsFromDB();
-      }
+      // Always fetch fresh listings to get latest status
+      await fetch(`${API_BASE_URL}/listings`)
+        .then(r => r.json())
+        .then(data => {
+          GLOBAL_LISTINGS = Array.isArray(data) ? data : (data.listings || []);
+        });
       
       const key = 'am_wishlist_' + user.email;
       let savedIds = JSON.parse(localStorage.getItem(key) || '[]');
       
-      // Filter out sold items
+      // Filter out sold items AND items that no longer exist
       savedIds = savedIds.filter(savedId => {
         const listing = GLOBAL_LISTINGS.find(l => (l._id || l.id).toString() === savedId.toString());
-        return !listing || listing.status !== 'sold';
+        return listing && listing.status !== 'sold';  // Keep only items that exist AND are not sold
       });
       
       // Update localStorage with filtered list

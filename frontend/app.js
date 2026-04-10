@@ -832,7 +832,17 @@ async function renderListingDetail(id) {
   const totalSkinCount = l?.skinTags?.length ?? 0;
   const saved = isWishlisted(idToUse);
 
+  // Image gallery section (if images exist)
+  const imageGalleryHtml = (l?.images && l.images.length > 0 && isSafeImageUrl(l.images[0]))
+    ? `<div style="grid-column: 1/-1; margin-bottom: 30px; border-radius: 12px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1);">
+        <div style="width: 100%; max-height: 500px; background: #000; display: flex; align-items: center; justify-content: center;">
+          <img src="${sanitize(l.images[0])}" alt="Listing montage" style="max-width: 100%; max-height: 500px; object-fit: contain;">
+        </div>
+      </div>`
+    : '';
+
   const html = `
+    ${imageGalleryHtml}
     <div class="detail-left">
       <h1 class="detail-title" style="font-size: 42px; margin-bottom: 8px; font-family: var(--font-display); font-weight: 900; text-transform: uppercase;">${sanitize(l.title || 'Untitled Account')}</h1>
       <div class="detail-tags" style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 24px;">${cleanTags}${badges.join('')}</div>
@@ -1032,22 +1042,46 @@ function updateCartBadge() {
   if (!user) return;
   const key = 'am_wishlist_' + user.email;
   let list = JSON.parse(localStorage.getItem(key) || '[]');
-  
-  // Remove sold items automatically
-  const allListings = window.GLOBAL_LISTINGS || [];
-  list = list.filter(savedId => {
-    const listing = allListings.find(l => (l._id || l.id).toString() === savedId.toString());
-    return !listing || listing.status !== 'sold';
-  });
-  
-  // Update localStorage with filtered list
-  localStorage.setItem(key, JSON.stringify(list));
-  
   const badge = document.getElementById('navCartBadge');
-  if (badge) {
-    badge.textContent = list.length;
-    badge.style.display = list.length > 0 ? 'flex' : 'none';
+  
+  // If no saved items, hide badge immediately
+  if (list.length === 0) {
+    if (badge) {
+      badge.style.display = 'none';
+    }
+    return;
   }
+  
+  // Don't show count until we've verified which items are actually available
+  if (badge) {
+    badge.style.display = 'flex';
+    badge.textContent = '...'; // Show loading state
+  }
+  
+  // Fetch listings to check which are sold, then filter
+  fetch(`${API_BASE_URL}/listings`)
+    .then(r => r.json())
+    .then(data => {
+      const allListings = Array.isArray(data) ? data : (data.listings || []);
+      // Filter out sold items AND items that no longer exist
+      const availableList = list.filter(savedId => {
+        const listing = allListings.find(l => (l._id || l.id).toString() === savedId.toString());
+        return listing && listing.status !== 'sold';  // Keep only items that exist AND are not sold
+      });
+      // Update localStorage with filtered list
+      localStorage.setItem(key, JSON.stringify(availableList));
+      // Update badge with actual count
+      if (badge) {
+        badge.textContent = availableList.length;
+        badge.style.display = availableList.length > 0 ? 'flex' : 'none';
+      }
+    })
+    .catch(() => {
+      // Fallback: if fetch fails, hide badge (conservative approach - don't show potentially stale count)
+      if (badge) {
+        badge.style.display = 'none';
+      }
+    });
 }
 
 // ===================== COMPARE =====================

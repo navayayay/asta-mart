@@ -25,22 +25,28 @@
 
         .region-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 30px; }
         
-        /* Gradient Border Card Design */
+        /* Glass Morphism Card Design */
         .card {
             position: relative;
             width: 100%;
-            height: 280px;
-            background-color: #3d3c3d;
+            height: 340px;
+            background: linear-gradient(135deg, rgba(20, 20, 35, 0.9) 0%, rgba(35, 25, 50, 0.8) 50%, rgba(20, 20, 35, 0.9) 100%);
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             padding: 0;
             gap: 16px;
-            border-radius: 12px;
+            border-radius: 20px;
             cursor: pointer;
-            border: 2px solid #4a4949;
-            transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 
+                inset 0 1px 0 rgba(255, 255, 255, 0.1),
+                0 8px 32px 0 rgba(0, 0, 0, 0.5),
+                0 0 40px rgba(63, 233, 255, 0.05);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            transition: all 0.5s ease-in-out;
             text-align: center;
             overflow: hidden;
         }
@@ -48,29 +54,21 @@
         .card::before {
             content: '';
             position: absolute;
-            width: 200%;
-            height: 150%;
-            background: rgba(255, 255, 255, 0.8);
-            border-radius: 50%;
-            filter: blur(50px);
-            top: -50%;
-            left: -50%;
-            z-index: 0;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
             pointer-events: none;
         }
         
-        .card::after {
-            content: '';
-            position: absolute;
-            inset: 2px;
-            background-color: #323132;
-            border-radius: 10px;
-            z-index: 1;
-            pointer-events: none;
-        }
-        
-        .region-card:hover .card {
-            border-color: rgba(255, 255, 255, 0.3);
+        .card:hover {
+            transform: scale(1.08);
+            border-color: rgba(63, 233, 255, 0.6);
+            box-shadow: 
+                inset 0 1px 0 rgba(255, 255, 255, 0.1),
+                0 8px 32px 0 rgba(0, 0, 0, 0.5),
+                0 0 40px rgba(63, 233, 255, 0.4);
         }
         
         /* Region Card Link Wrapper */
@@ -93,29 +91,24 @@
         
         .region-title {
             font-family: var(--font-display);
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--white-pure);
+            font-size: 2rem;
+            font-weight: 800;
+            color: rgba(255, 255, 255, 1);
             margin: 0;
             padding: 0 20px;
             text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-        
-        .region-subtitle {
-            color: var(--white-dim);
-            font-size: 0.95rem;
-            font-weight: 600;
-            letter-spacing: 0.5px;
-            margin: 0;
-            padding: 0 20px;
+            letter-spacing: 2px;
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
         }
         
         .region-provider {
-            color: var(--white-pure);
-            font-weight: 700;
+            color: rgba(255, 255, 255, 1);
+            font-weight: 800;
+            font-size: 1.05rem;
             margin: 0;
             padding: 0 20px;
+            letter-spacing: 0.5px;
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
         }
         
         .region-checkmark { 
@@ -150,10 +143,10 @@
       <div class="nav-links" style="gap: 15px; align-items: center;">
         <a href="browse.html" class="nav-premium-btn"><span class="nav-premium-inner">Browse Accounts</span></a>
         <a href="get-edit.html" class="nav-premium-btn"><span class="nav-premium-inner">Get Inv Edit</span></a>
-        <a href="vault-dashboard.html" class="nav-premium-btn" id="vaultNavBtn"><span class="nav-premium-inner" style="color: var(--accent-cyan);">Asta Vault</span></a>
+        <a href="vault-dashboard.html" class="nav-premium-btn" id="vaultNavBtn"><span class="nav-premium-inner">Asta Vault</span></a>
         <a href="vp-store.html" class="nav-premium-btn">
-          <span class="nav-premium-inner" style="color:#ff4655;">
-            🎯 VP Store
+          <span class="nav-premium-inner">
+            VP Store
           </span>
         </a>
       </div>
@@ -262,15 +255,16 @@
         }
 
         function renderRegions() {
+            const regionCodeMap = { 'PH': 'PHP', 'ID': 'IDN', 'TH': 'THAI', 'SG': 'SGP', 'KH': 'CMB', 'MY': 'MYS' };
             const container = document.getElementById('region-selector');
             container.innerHTML = packagesData.map(r => `
                 <a href="vp-product.html?region=${r.code}" class="region-card" id="region-${r.code}">
                     <div class="card">
                         <div style="position: relative; z-index: 2; display: inherit; flex-direction: inherit; align-items: inherit; justify-content: inherit; gap: inherit; width: 100%;">
                             <div class="region-checkmark">✓</div>
-                            <div class="region-flag">${regionFlags[r.code] || '🌍'}</div>
-                            <p class="region-title">${r.name}</p>
-                            <p class="region-subtitle">Provided By</p>
+                            <p class="region-title">${regionCodeMap[r.code] || r.code}</p>
+                            <p style="font-family: var(--font-display); font-size: 1.3rem; font-weight: 600; color: rgba(255, 255, 255, 0.9); margin: 0; padding: 0 20px;">${r.name}</p>
+                            <svg viewBox="0 0 100 100" height="4.5em" xmlns="http://www.w3.org/2000/svg"><path d="M99.25 48.66V10.28c0-.59-.75-.86-1.12-.39l-41.92 52.4a.627.627 0 00.49 1.02h30.29c.82 0 1.59-.37 2.1-1.01l9.57-11.96c.38-.48.59-1.07.59-1.68zM1.17 50.34L32.66 89.7c.51.64 1.28 1.01 2.1 1.01h30.29c.53 0 .82-.61.49-1.02L1.7 9.89c-.37-.46-1.12-.2-1.12.39v38.38c0 .61.21 1.2.59 1.68z" fill="currentColor"></path></svg>
                             <p class="region-provider">Asta Mart</p>
                         </div>
                     </div>
