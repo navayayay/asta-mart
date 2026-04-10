@@ -105,7 +105,7 @@
         function renderRegions() {
             const container = document.getElementById('region-selector');
             container.innerHTML = packagesData.map(r => `
-                <a href="/vp-checkout/${r.code}" class="region-card" id="region-${r.code}">
+                <a href="vp-product.html?region=${r.code}" class="region-card" id="region-${r.code}">
                     <div class="region-checkmark">✓</div>
                     <div class="region-left">
                         <div class="region-flag">${regionFlags[r.code] || '🌍'}</div>

@@ -2,23 +2,37 @@ const express = require('express');
 const path = require('path');
 const app = express();
 
-// Serve static files from the current directory
-app.use(express.static(__dirname, {
-  maxAge: process.env.NODE_ENV === 'production' ? '7d' : '1h',
-  etag: false  // Use Last-Modified header instead
-}));
+console.log('Server initialized');
 
-// Don't cache HTML files (always check for updates)
-app.use((req, res, next) => {
-  if (req.path.endsWith('.html') || req.path === '/') {
-    res.set('Cache-Control', 'no-cache, must-revalidate, max-age=0, public');
-  }
-  next();
+// Test route
+app.get('/test', (req, res) => {
+  console.log('GET /test called');
+  res.send('Test successful');
 });
 
-// Serve index.html for SPA routes (fallback for all other routes)
+// Handle /vp-checkout/:region route - serve vp-product.html
+app.get('/vp-checkout/:region', (req, res) => {
+  console.log('GET /vp-checkout/:region called with region=', req.params.region);
+  res.sendFile(path.resolve(__dirname, 'vp-product.html'));
+});
+
+// Serve static files - this handles .html, .css, .js, images, etc.
+// This should come AFTER route handlers so they have priority
+app.use(express.static(__dirname, {
+  maxAge: process.env.NODE_ENV === 'production' ? '7d' : '1h',
+  etag: false,
+  setHeaders: (res, filepath) => {
+    // Don't cache HTML files
+    if (filepath.endsWith('.html')) {
+      res.set('Cache-Control', 'no-cache, must-revalidate, max-age=0, public');
+    }
+  }
+}));
+
+// Fallback 404 handler
 app.use((req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
+  console.log('Fallback 404 for:', req.path);
+  res.status(404).send('Not found');
 });
 
 const PORT = process.env.PORT || 5500;

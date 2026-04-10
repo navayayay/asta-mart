@@ -238,7 +238,7 @@ const readLimiter = rateLimit({
 
 const vpStoreLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10,
+  max: 200, // Very permissive for development
   message: { error: 'Too many requests to the VP store. Please try again later.' }
 });
 
@@ -1051,7 +1051,7 @@ app.get('/api/vp/packages', vpStoreLimiter, async (req, res) => {
 });
 
 // Create Order
-app.post('/api/vp/create-order', authenticateUser, csrfProtection, vpStoreLimiter, async (req, res) => {
+app.post('/api/vp/create-order', requireAuth, csrfProtection, vpStoreLimiter, async (req, res) => {
     try {
         const { packageId, riotUID, region } = req.body;
         const sanitizedUID = riotUID.replace(/[^a-zA-Z0-9#]/g, '').slice(0, 30); // Sanitize UID
@@ -1112,7 +1112,7 @@ app.post('/api/vp/create-order', authenticateUser, csrfProtection, vpStoreLimite
 });
 
 // Get Single Order
-app.get('/api/vp/order/:orderId', authenticateUser, vpStoreLimiter, async (req, res) => {
+app.get('/api/vp/order/:orderId', requireAuth, vpStoreLimiter, async (req, res) => {
     try {
         const order = await VPOrder.findOne({ orderId: req.params.orderId, buyerEmail: req.user.email });
         if (!order) return res.status(404).json({ error: 'Order not found' });
@@ -1138,7 +1138,7 @@ app.get('/api/vp/order/:orderId', authenticateUser, vpStoreLimiter, async (req, 
 });
 
 // Get My Orders
-app.get('/api/vp/my-orders', authenticateUser, vpStoreLimiter, async (req, res) => {
+app.get('/api/vp/my-orders', requireAuth, vpStoreLimiter, async (req, res) => {
     try {
         const orders = await VPOrder.find({ buyerEmail: req.user.email })
             .select('-deliveryData') // Exclude delivery data from list view
