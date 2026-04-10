@@ -1554,7 +1554,7 @@ body {
   position: relative;
   width: 220px;
   height: 280px;
-  background: linear-gradient(to bottom, #000000 0%, var(--bg-dark) 20%, var(--bg-dark) 100%);
+  background: linear-gradient(to bottom, #000000 0%, #140f17 20%, #140f17 100%);
   position: relative;
   overflow-x: clip;
   border: 1px solid rgba(255, 255, 255, 0.15);
@@ -1576,9 +1576,9 @@ body {
   transform: rotate(0deg) translateY(-20px); 
   margin: 0 20px; 
   z-index: 10;
-  border-color: var(--accent-cyan);
-  background: linear-gradient(135deg, rgba(63, 233, 255, 0.1), rgba(255, 255, 255, 0.02));
-  box-shadow: 0 25px 45px rgba(0, 0, 0, 0.5), 0 0 30px rgba(63, 233, 255, 0.15);
+  border-color: #730c1e;
+  background: linear-gradient(135deg, rgba(115,12,30,0.1), rgba(255, 255, 255, 0.02));
+  box-shadow: 0 25px 45px rgba(0, 0, 0, 0.5), 0 0 30px rgba(115,12,30,0.15);
 }
 
 /* (The rest of the SVG and ::before pseudo-element CSS stays exactly the same as before) */
@@ -1589,7 +1589,7 @@ body {
 }
 
 .glass:hover svg {
-  fill: var(--accent-cyan);
+  fill: #730c1e;
   transform: scale(1.1);
 }
 
@@ -2056,7 +2056,7 @@ body {
 .doc-content-card .doc-last-updated {
   font-family: var(--font-mono);
   font-size: 12px;
-  color: var(--accent-cyan);
+  color: #730c1e;
   margin-bottom: 40px;
   display: block;
 }
