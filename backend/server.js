@@ -473,7 +473,7 @@ app.post('/api/auth/send-otp', otpLimiter, async (req, res) => {
         if (emailConfigured && transporter) {
             try {
                 await transporter.sendMail({
-                    from: '"Asta Mart" <no-reply@astamart.com>',
+                    from: '"Asta Mart" <asta12196@gmail.com>',
                     to: email,
                     subject: 'Your Asta Mart Verification Code',
                     html: `
