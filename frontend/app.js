@@ -122,7 +122,7 @@ function showToast(msg, type = 'info', duration = 4000) {
   const t = document.createElement('div');
   t.className = 'am-toast';
   t.textContent = msg;
-  const bgColor = type === 'error' ? '#E24B4A' : type === 'success' ? '#3B6D11' : '#185FA5';
+  const bgColor = type === 'error' ? '#E24B4A' : type === 'success' ? '#3B6D11' : '#480415';
   t.style.cssText = `position:fixed;bottom:24px;right:24px;z-index:9999;
     padding:12px 20px;border-radius:8px;font-family:sans-serif;font-size:14px;
     background:${bgColor};color:#fff;box-shadow:0 4px 16px rgba(0,0,0,0.3);
@@ -265,7 +265,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     logErr('Critical initialization error:', err);
     // Show fallback UI
     const fallback = document.createElement('div');
-    fallback.style.cssText = 'padding:40px; text-align:center; color:#fff; background:#000;';
+    fallback.style.cssText = 'padding:40px; text-align:center; color:#fff; background:#140f17;';
     fallback.innerHTML = '<h2>⚠️ Server Connection Error</h2><p>Please refresh the page.</p>';
     document.body.innerHTML = '';
     document.body.appendChild(fallback);
@@ -825,19 +825,19 @@ async function renderListingDetail(id) {
       <div class="detail-section" style="margin-bottom: 28px;">
         <h4 style="font-family: var(--font-display); font-size: 15px; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; color: var(--accent-cyan); margin-bottom: 12px;">Account Info</h4>
         <div class="detail-info-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-          <div style="background: rgba(15, 10, 30, 0.6); padding: 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
+          <div style="background: rgba(20, 15, 23, 0.6); padding: 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
               <span style="display: block; font-family: var(--font-mono); font-size: 10px; color: var(--white-dim); text-transform: uppercase; letter-spacing: 1px;">Region</span>
               <span style="font-family: var(--font-ui); font-size: 16px; font-weight: bold; color: #fff; margin-top: 4px; display: block;">${sanitize(l.region || 'AP')}</span>
           </div>
-          <div style="background: rgba(15, 10, 30, 0.6); padding: 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
+          <div style="background: rgba(20, 15, 23, 0.6); padding: 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
               <span style="display: block; font-family: var(--font-mono); font-size: 10px; color: var(--white-dim); text-transform: uppercase; letter-spacing: 1px;">Email Status</span>
               <span style="font-family: var(--font-ui); font-size: 14px; font-weight: bold; color: var(--accent-green); display: flex; align-items: center; gap: 6px; margin-top: 4px;">✅ ${l.emailAccess ? 'Original Email Included' : 'Transfer to New Mail (Full Access)'}</span>
           </div>
-          <div style="background: rgba(15, 10, 30, 0.6); padding: 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
+          <div style="background: rgba(20, 15, 23, 0.6); padding: 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
               <span style="display: block; font-family: var(--font-mono); font-size: 10px; color: var(--white-dim); text-transform: uppercase; letter-spacing: 1px;">Ban History</span>
               <span style="font-family: var(--font-ui); font-size: 14px; font-weight: bold; display: flex; align-items: center; gap: 6px; margin-top: 4px; color: ${l.banHistory?'#ff6b6b':'var(--accent-green)'}">${l.banHistory ? '⚠️ Yes' : '✅ Clean'}</span>
           </div>
-          <div style="background: rgba(15, 10, 30, 0.6); padding: 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
+          <div style="background: rgba(20, 15, 23, 0.6); padding: 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
               <span style="display: block; font-family: var(--font-mono); font-size: 10px; color: var(--white-dim); text-transform: uppercase; letter-spacing: 1px;">Limited Skins</span>
               <span style="font-family: var(--font-ui); font-size: 14px; font-weight: bold; color: ${l.limited ? 'var(--accent-gold)' : '#fff'}; margin-top: 4px; display: block; line-height: 1.4;">${l.limited && l.limitedDetail ? `✨ ${sanitize(l.limitedDetail)}` : 'None'}</span>
           </div>
@@ -866,22 +866,22 @@ async function renderListingDetail(id) {
     </div>
 
     <div class="detail-right">
-      <div class="contact-card" style="background: rgba(15, 10, 30, 0.6); border: 1px solid rgba(255,255,255,0.05); padding: 24px; border-radius: 12px; position: sticky; top: 100px;">
+      <div class="contact-card" style="background: rgba(20, 15, 23, 0.6); border: 1px solid rgba(255,255,255,0.05); padding: 24px; border-radius: 12px; position: sticky; top: 100px;">
         <div class="detail-price" style="font-size: 48px; color: var(--red); font-family: var(--font-display); font-weight: 900; margin-bottom: 4px; line-height: 1;">₹${(l.price||0).toLocaleString('en-IN')}</div>
         <div class="detail-price-sub" style="font-family: var(--font-mono); font-size: 11px; color: var(--white-dim); margin-bottom: 24px;">Negotiable • Secure Transaction</div>
 
         <div class="detail-ranks" style="display: flex; gap: 10px; margin-bottom: 24px;">
-          <div class="detail-rank" style="flex: 1; background: rgba(0,0,0,0.3); padding: 12px; border-radius: 6px; text-align: center;">
+          <div class="detail-rank" style="flex: 1; background: rgba(20, 15, 23, 0.3); padding: 12px; border-radius: 6px; text-align: center;">
             <div class="detail-rank-label" style="font-size: 9px; font-family: var(--font-mono); color: var(--white-dim); text-transform: uppercase; margin-bottom: 6px;">Current Rank</div>
             <div class="detail-rank-val ${getRankColor(l.rank)}" style="display:flex; align-items:center; justify-content:center; font-family: var(--font-display); font-weight: 900; font-size: 18px;">${getRankIcon(l.rank)} ${l.rank || 'Unranked'}</div>
           </div>
-          <div class="detail-rank" style="flex: 1; background: rgba(0,0,0,0.3); padding: 12px; border-radius: 6px; text-align: center;">
+          <div class="detail-rank" style="flex: 1; background: rgba(20, 15, 23, 0.3); padding: 12px; border-radius: 6px; text-align: center;">
             <div class="detail-rank-label" style="font-size: 9px; font-family: var(--font-mono); color: var(--white-dim); text-transform: uppercase; margin-bottom: 6px;">Peak Rank</div>
             <div class="detail-rank-val ${getRankColor(l.peakRank)}" style="display:flex; align-items:center; justify-content:center; font-family: var(--font-display); font-weight: 900; font-size: 18px;">${getRankIcon(l.peakRank)} ${l.peakRank || 'Unranked'}</div>
           </div>
         </div>
 
-        <div class="seller-mini" style="display: flex; align-items: center; gap: 12px; padding: 16px; background: rgba(0,0,0,0.3); border-radius: 6px; margin-bottom: 24px;">
+        <div class="seller-mini" style="display: flex; align-items: center; gap: 12px; padding: 16px; background: rgba(20, 15, 23, 0.3); border-radius: 6px; margin-bottom: 24px;">
           <div class="seller-avatar" style="width: 40px; height: 40px; border-radius: 50%; background: var(--red); display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 16px; color: #fff;">${l.sellerName ? sanitize(l.sellerName)[0].toUpperCase() : 'S'}</div>
           <div class="seller-info">
             <div class="seller-name" style="font-family: var(--font-ui); font-weight: 700; font-size: 15px;">${sanitize(l.sellerName || 'Seller')}</div>
