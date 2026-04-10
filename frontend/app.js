@@ -841,6 +841,8 @@ async function renderListingDetail(id) {
       </div>`
     : '';
 
+  const inCompare = compareList.includes(idToUse);
+
   const html = `
     ${imageGalleryHtml}
     <div class="detail-left">
@@ -924,7 +926,7 @@ async function renderListingDetail(id) {
         </div>
 
         <div class="detail-action-btns" style="display: flex; gap: 10px; margin-bottom: 16px;">
-          <button class="btn-ghost compare-add-btn" style="flex: 1; padding: 12px;" onclick="toggleCompare('${idToUse}','${(l.title||'').replace(/'/g,"\\'")}',this)">⚖ Compare</button>
+          <button class="btn-ghost compare-add-btn" style="flex: 1; padding: 12px;" onclick="toggleCompare('${idToUse}','${(l.title||'').replace(/'/g,"\\'")}',this)">⚖ ${inCompare ? 'Comparing' : 'Compare'}</button>
           <button class="bookmarkBtn ${saved ? 'saved' : ''}" style="flex: 1; padding: 12px; justify-content: center;" onclick="toggleWishlist('${idToUse}',this)">
               <span class="IconContainer">
                 <svg viewBox="0 0 384 512" height="0.9em" class="icon">
@@ -1095,6 +1097,10 @@ function toggleCompare(id, title, btn) {
     if (compareList.length >= 3) { showToast('You can compare up to 3 accounts at once.', 'info'); return; }
     compareList.push(strId);
     btn?.classList.add('selected');
+  }
+  // Update button text on detail page
+  if (btn && btn.classList.contains('compare-add-btn')) {
+    btn.textContent = compareList.includes(strId) ? '⚖ Comparing' : '⚖ Compare';
   }
   sessionStorage.setItem('am_compare', JSON.stringify(compareList));
   renderCompareTray();

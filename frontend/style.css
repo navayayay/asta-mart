@@ -158,6 +158,7 @@ img { max-width: 100%; }
 .btn-ghost:hover { border-color: var(--red); color: var(--red); box-shadow: inset 0 0 20px rgba(255,70,85,0.06), 0 0 12px rgba(255,70,85,0.12); }
 .btn-ghost.full { width: 100%; text-align: center; clip-path: none; }
 .btn-ghost.sm { padding: 5px 12px; font-size: 11px; clip-path: none; }
+.compare-add-btn.selected { border-color: var(--red); color: var(--red); box-shadow: inset 0 0 20px rgba(255,70,85,0.06), 0 0 16px rgba(255,70,85,0.25); }
 .btn-sold { background: linear-gradient(135deg, var(--accent-green), #2db845); color: #000; border: none; cursor: pointer; font-family: var(--font-ui); font-weight: 800; padding: 6px 14px; font-size: 12px; letter-spacing: .5px; text-transform: uppercase; box-shadow: 0 0 12px rgba(57,211,83,0.3); }
 .btn-danger { background: transparent; color: #ff5555; border: 1px solid rgba(255,85,85,0.4); cursor: pointer; font-family: var(--font-ui); font-weight: 600; padding: 6px 12px; font-size: 12px; transition: all .2s; }
 .btn-danger:hover { background: rgba(255,85,85,0.1); border-color: #ff5555; }
